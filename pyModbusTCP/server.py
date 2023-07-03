@@ -1,6 +1,8 @@
 # Python module: ModbusServer class (ModBus/TCP Server)
 import string
-from random import random
+from binascii import unhexlify
+import random
+from pymodbus.utilities import computeCRC
 
 from .constants import READ_COILS, READ_DISCRETE_INPUTS, READ_HOLDING_REGISTERS, READ_INPUT_REGISTERS, \
     WRITE_MULTIPLE_COILS, WRITE_MULTIPLE_REGISTERS, WRITE_SINGLE_COIL, WRITE_SINGLE_REGISTER, \
@@ -424,7 +426,6 @@ class ModbusServer:
     """ Modbus TCP server """
 
     class ModbusService(BaseRequestHandler):
-
         def _can_recv(self, timeout=0.5):
             if select.select([self.request], [], [], timeout)[0]:
                 return True
@@ -464,12 +465,47 @@ class ModbusServer:
             # data = b'Hello, world!'
             # self._send_all(data)
             # main loop
+            flag = False
             while True:
                 # exit from this thread if main server stop running
                 if not self.server._evt_running.is_set():
                     break
 
+                # 初始化40000~40002寄存器
+                if not flag:
+                    for i in range(3):
+                        # 范围在0-4000的随机数据
+                        data = random.randint(0, 4000)
+                        data = hex(data)[2:].zfill(4)
+                        data_str = str(data)
+                        print(data_str)
+
+                        val = []
+                        val.append(int(data_str[0:2], 16))  # 高位
+                        val.append(int(data_str[2:4], 16))  # 低位
+
+                        reg_addr = str(hex(40000 + i)[2:].zfill(4))
+                        ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
+
+                    # 初始化40003~40005寄存器
+                    for i in range(3):
+                        # 范围在0-1000的随机数据
+                        data = random.randint(0, 1000)
+                        data = hex(data)[2:].zfill(4)
+                        data_str = str(data)
+                        print(data_str)
+
+                        val = []
+                        val.append(int(data_str[0:2], 16))  # 高位
+                        val.append(int(data_str[2:4], 16))  # 低位
+
+                        reg_addr = str(hex(40003 + i)[2:].zfill(4))
+                        ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
+
+                flag = True
+
                 reply_messge = ""
+                recive_messge = ""
 
                 # 打印请求信息
                 print("收到以下客户端的请求:" + str(self.client_address))
@@ -477,50 +513,74 @@ class ModbusServer:
                 print("设备地址为:" + dev_addr)
 
                 reply_messge += dev_addr
+                recive_messge += dev_addr
 
                 # 读取功能码
                 func_code = self._recv(2).decode("utf-8")
                 print("功能码为:" + func_code)
 
                 reply_messge += func_code
+                recive_messge += func_code
 
                 # 读取寄存器地址
                 reg_addr = self._recv(4).decode("utf-8")
+                recive_messge += reg_addr
                 print("寄存器地址为:" + reg_addr)
-
-                reply_messge += reg_addr
 
                 # 数据
                 data = self._recv(4).decode("utf-8")
+                recive_messge += data
                 print("数据为:" + data)
 
-                reply_messge += data
-
                 # 对于不同的功能码进行处理
-                if func_code == b'\x03':  # 读保持寄存器
-                    print(1)
-                elif func_code == b'\x04':  # 读输入寄存器
-                    print(1)
-                elif func_code == b'\x06':  # 写单个寄存器
-                    print(1)
-                    # ret = self.server.data_hdl.write_h_regs(reg_addr, data, srv_infos=srv_infos)
-                    # # format regular or except response
-                    # if ret.ok:
-                    #     tx_pdu += struct.pack('>BHH', rx_func_code, reg_addr, reg_value)
-                    # else:
-                    #     exp_status = ret.exp_code
-                    # print(1)
+                if func_code == "03":  # 读保持寄存器
+                    ret = self.server.data_hdl.read_h_regs(int(reg_addr, 16), int(data, 16) * 2, None)
+                    if ret.ok:
+                        hex_cnt = int(data, 16) * 2
+                        hex_str = str(hex_cnt).zfill(2)
+                        reply_messge += hex_str
+                        print(ret.data)
+                        # add requested words
+                        for i in range(0, len(ret.data)):
+                            reply_messge += str(ret.data[i]).zfill(2)
+                elif func_code == "04":  # 读输入寄存器
+                    ret = self.server.data_hdl.read_i_regs(int(reg_addr, 16), int(data, 16), None)
+                    if ret.ok:
+                        hex_cnt = int(data, 16)
+                        hex_str = str(hex_cnt).zfill(2)
+                        reply_messge += hex_str
+                        print(ret.data)
+                        # add requested words
+                        for i in range(0, len(ret.data)):
+                            reply_messge += str(ret.data[i])
+                elif func_code == "06":  # 写单个寄存器
+                    val = []
+                    val.append(int(data[0:2], 16))  # 高位
+                    val.append(int(data[2:4], 16))  # 低位
+                    print(val)
+                    ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
+                    reply_messge += reg_addr
+                    reply_messge += data
+
+                # 计算CRC校验
+                crc_code = '{:04X}'.format(computeCRC(unhexlify(recive_messge)))
+                print("计算得到的CRC校验为:" + crc_code)
+                reply_messge += crc_code
 
                 # 读取CRC校验
                 crc = self._recv(4).decode("utf-8")
+                recive_messge += crc
+                print("收到的请求信息为:" + recive_messge)
 
-                reply_messge += crc
+                if crc_code.upper() != crc.upper():
+                    print("CRC校验失败")
+                    continue
 
                 # 打印回复信息
                 print("回复信息为:" + reply_messge)
                 self._send_all(reply_messge.encode('utf-8'))
 
-                # #receive mbap from client
+                # receive mbap from client
                 # rx_mbap = self._recv_all(7)
                 # # close connection if no standard 7 bytes mbap header
                 # if not (rx_mbap and len(rx_mbap) == 7):
@@ -584,8 +644,6 @@ class ModbusServer:
                 #         exp_status = EXP_DATA_VALUE
                 # # functions Read Holding Registers (0x03) or Read Input Registers (0x04)
                 # elif rx_func_code in (READ_HOLDING_REGISTERS, READ_INPUT_REGISTERS):
-                #     data = b'Hello, world!'
-                #     self._send_all(data)
                 #     # ensure pdu size
                 #     if len(rx_pdu[1:]) != struct.calcsize('>HH'):
                 #         break
@@ -727,6 +785,7 @@ class ModbusServer:
         :type data_hdl: ModbusServerDataHandler
         """
         # public
+
         self.host = host
         self.port = port
         self.no_block = no_block
