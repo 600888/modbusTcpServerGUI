@@ -461,6 +461,47 @@ class ModbusServer:
                         break
             return data
 
+        def initRegister(self):
+            # 初始化40000~40002寄存器
+            for i in range(3):
+                # 范围在0-4000的随机数据
+                data = random.randint(0, 4000)
+                data = hex(data)[2:].zfill(4)
+                data_str = str(data)
+                print(data_str)
+
+                val = []
+                val.append(int(data_str[0:4], 16))
+
+                reg_addr = str(hex(40000 + i)[2:].zfill(4))
+                ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
+
+            # 初始化40003~40006寄存器
+            for i in range(4):
+                # 范围在0-1000的随机数据
+                data = random.randint(0, 1000)
+                data = hex(data)[2:].zfill(4)
+                data_str = str(data)
+                print(data_str)
+
+                val = []
+                val.append(int(data_str[0:4], 16))
+
+                reg_addr = str(hex(40003 + i)[2:].zfill(4))
+                ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
+
+            # 初始化40008 寄存器： 遥信数据
+            binary_data = [bin(i)[2:].zfill(16) for i in range(65536)]
+            decimal_data = [int(binary, 2) for binary in binary_data]
+            random_number = random.choice(decimal_data)
+            print(random_number)
+
+            val = []
+            val.append(random_number)
+
+            reg_addr = str(hex(40008)[2:].zfill(4))
+            ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
+
         def handle(self):
             # data = b'Hello, world!'
             # self._send_all(data)
@@ -471,46 +512,8 @@ class ModbusServer:
                 if not self.server._evt_running.is_set():
                     break
 
-                # 初始化40000~40002寄存器
                 if not flag:
-                    for i in range(3):
-                        # 范围在0-4000的随机数据
-                        data = random.randint(0, 4000)
-                        data = hex(data)[2:].zfill(4)
-                        data_str = str(data)
-                        print(data_str)
-
-                        val = []
-                        val.append(int(data_str[0:4], 16))
-
-                        reg_addr = str(hex(40000 + i)[2:].zfill(4))
-                        ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
-
-                    # 初始化40003~40006寄存器
-                    for i in range(4):
-                        # 范围在0-1000的随机数据
-                        data = random.randint(0, 1000)
-                        data = hex(data)[2:].zfill(4)
-                        data_str = str(data)
-                        print(data_str)
-
-                        val = []
-                        val.append(int(data_str[0:4], 16))
-
-                        reg_addr = str(hex(40003 + i)[2:].zfill(4))
-                        ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
-
-                    # 初始化40008 寄存器： 遥信数据
-                    binary_data = [bin(i)[2:].zfill(16) for i in range(65536)]
-                    decimal_data = [int(binary, 2) for binary in binary_data]
-                    random_number = random.choice(decimal_data)
-                    print(random_number)
-
-                    val = []
-                    val.append(random_number)
-
-                    reg_addr = str(hex(40008)[2:].zfill(4))
-                    ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
+                    self.initRegister()
 
                 flag = True
 
