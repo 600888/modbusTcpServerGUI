@@ -2,6 +2,7 @@
 import string
 from binascii import unhexlify
 import random
+
 from pymodbus.utilities import computeCRC
 
 from .constants import READ_COILS, READ_DISCRETE_INPUTS, READ_HOLDING_REGISTERS, READ_INPUT_REGISTERS, \
@@ -19,7 +20,7 @@ from warnings import warn
 try:
     from socketserver import BaseRequestHandler, ThreadingTCPServer
 except ImportError:
-    from SocketServer import BaseRequestHandler, ThreadingTCPServer
+    from socketserver import BaseRequestHandler, ThreadingTCPServer
 
 
 class DataBank:
@@ -520,30 +521,33 @@ class ModbusServer:
                 reply_messge = ""
                 recive_messge = ""
 
-                # 打印请求信息
-                print("收到以下客户端的请求:" + str(self.client_address))
-                dev_addr = self._recv(2).decode("utf-8")
-                print("设备地址为:" + dev_addr)
+                try:
+                    # 打印请求信息
+                    print("收到以下客户端的请求:" + str(self.client_address))
+                    dev_addr = self._recv(2).decode("utf-8")
+                    print("设备地址为:" + dev_addr)
 
-                reply_messge += dev_addr
-                recive_messge += dev_addr
+                    reply_messge += dev_addr
+                    recive_messge += dev_addr
 
-                # 读取功能码
-                func_code = self._recv(2).decode("utf-8")
-                print("功能码为:" + func_code)
+                    # 读取功能码
+                    func_code = self._recv(2).decode("utf-8")
+                    print("功能码为:" + func_code)
 
-                reply_messge += func_code
-                recive_messge += func_code
+                    reply_messge += func_code
+                    recive_messge += func_code
 
-                # 读取寄存器地址
-                reg_addr = self._recv(4).decode("utf-8")
-                recive_messge += reg_addr
-                print("寄存器地址为:" + reg_addr)
+                    # 读取寄存器地址
+                    reg_addr = self._recv(4).decode("utf-8")
+                    recive_messge += reg_addr
+                    print("寄存器地址为:" + reg_addr)
 
-                # 数据
-                data = self._recv(4).decode("utf-8")
-                recive_messge += data
-                print("数据为:" + data)
+                    # 数据
+                    data = self._recv(4).decode("utf-8")
+                    recive_messge += data
+                    print("数据为:" + data)
+                except Exception as e:
+                    print("接收数据出错")
 
                 try:
                     # 对于不同的功能码进行处理
@@ -590,9 +594,11 @@ class ModbusServer:
                     print("收到的请求信息为:" + recive_messge)
 
                     if crc_code.upper() != crc.upper():
+                        print("回复信息为:" + reply_messge)
                         print("CRC校验失败")
                         continue
                 except Exception as e:
+                    print("收到的请求信息为:" + recive_messge)
                     print("CRC校验遇到异常！！！！！！！！！！！！！！！！！！！！！！！！！！！！！")
 
                 # 打印回复信息
