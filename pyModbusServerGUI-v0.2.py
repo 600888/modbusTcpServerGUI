@@ -428,7 +428,7 @@ def on_modbus_type_selected(sender, data):
 
 # # 注册字体，自选字体
 with dpg.font_registry():
-    with dpg.font("Adobe Fangsong Std.otf", 20) as font:  # 增加中文编码范围，防止问号
+    with dpg.font("Adobe Fangsong Std.otf", 25) as font:  # 增加中文编码范围，防止问号
         dpg.add_font_range_hint(dpg.mvFontRangeHint_Default)
         dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Simplified_Common)
         dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)
@@ -442,7 +442,7 @@ with dpg.theme() as red_bg_theme:
     with dpg.theme_component(dpg.mvAll):
         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (230, 0, 0), category=dpg.mvThemeCat_Core)
 
-with dpg.window(tag="Primary Window", width=800):
+with dpg.window(tag="Primary Window", width=1000):
     dpg.bind_font(default_font)
     dpg.add_text("Modbus/TCP 服务器地址:", tag="serverText")
 
@@ -491,8 +491,8 @@ with dpg.window(tag="Primary Window", width=800):
     with dpg.collapsing_header(label="离散输出线圈值"):
         with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _coil_child_window:
 
-            dpg.add_button(label="Randomise Coil Values", callback=randomiseCoils, tag="randomiseCoilsButton")
-            dpg.add_button(label="Clear Coil Values", callback=clearCoils, tag="clearCoilsButton")
+            dpg.add_button(label="随机生成线圈值", callback=randomiseCoils, tag="randomiseCoilsButton")
+            dpg.add_button(label="清空线圈值", callback=clearCoils, tag="clearCoilsButton")
             # dpg.add_button(label="Refresh Table", callback=refreshCoils, tag="refreshCoilsButton")
             coilValueGroup = dpg.add_group(horizontal=True)
             dpg.move_item("randomiseCoilsButton", parent=coilValueGroup)
@@ -522,19 +522,19 @@ with dpg.window(tag="Primary Window", width=800):
                                 dpg.highlight_table_cell(coil_table_id, i, j, [230, 0, 0, 100])
 
     with dpg.collapsing_header(label="导入CSV设置离散输出线圈值"):
-        dpg.add_text("Enter comma separated list of coil values as integer values in range 1-9999")
+        dpg.add_text("输入以逗号分隔的线圈值列表作为1-9999地址范围内的整数值")
         dpg.add_input_text(default_value="", tag="coilValueInputText", multiline=True)
-        dpg.add_button(label="Set Coil Values", callback=setManualCoils, tag="setManualCoilsButton")
-        dpg.add_input_text(default_value="Status", tag="coilValueStatusText", readonly=True)
+        dpg.add_button(label="设置线圈值", callback=setManualCoils, tag="setManualCoilsButton")
+        dpg.add_input_text(default_value="状态", tag="coilValueStatusText", readonly=True)
 
-    # 30001 - 39999 - analog input registers - R/O - 16 bit int
+    # 30001 - 39999 - 输入寄存器 - R/O - 16 bit int
     with dpg.collapsing_header(
             label="模拟输入寄存器值GUI，如果客户端更改了值，需手动点击刷新按钮才能更新GUI"):
         with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _register_child_window:
 
-            dpg.add_button(label="Randomise Input Register Values", callback=randomiseRegisters,
+            dpg.add_button(label="随机生成输入寄存器值", callback=randomiseRegisters,
                            tag="randomiseRegistersButton")
-            dpg.add_button(label="Clear Input Register Values", callback=clearRegisters, tag="clearRegistersButton")
+            dpg.add_button(label="清空输入寄存器值", callback=clearRegisters, tag="clearRegistersButton")
             registerValueGroup = dpg.add_group(horizontal=True)
             dpg.move_item("randomiseRegistersButton", parent=registerValueGroup)
             dpg.move_item("clearRegistersButton", parent=registerValueGroup)
@@ -560,19 +560,19 @@ with dpg.window(tag="Primary Window", width=800):
                                 dpg.add_text(f"{rowval}")
                             else:
                                 dpg.add_input_text(tag="registers" + str(i * REGISTERSPERROW + j),
-                                                   callback=registerTextChanged, decimal=True, width=40,
+                                                   callback=registerTextChanged, decimal=True, width=75,
                                                    user_data=i * REGISTERSPERROW + j)
 
-    # 40001 - 49999 - analog output holding registers - R/W - 16 bit int
+    # 40001 - 49999 - 输出保持寄存器 - R/W - 16 bit int
     with dpg.collapsing_header(
-            label="Analogue Output Holding Register Values GUI - Doesn't yet update if values are changed by client"):
+            label="模拟输出寄存器值GUI，如果客户端更改了值，需手动点击刷新按钮才能更新GUI"):
         with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _output_register_child_window:
 
-            dpg.add_button(label="Randomise Output Register Values", callback=randomiseOutputRegisters,
+            dpg.add_button(label="随机生成输出寄存器值", callback=randomiseOutputRegisters,
                            tag="randomiseOutputRegistersButton")
-            dpg.add_button(label="Clear Output Register Values", callback=clearOutputRegisters,
+            dpg.add_button(label="清空输出寄存器值", callback=clearOutputRegisters,
                            tag="clearOutputRegistersButton")
-            dpg.add_button(label="Refresh Table", callback=refreshOutputRegistersTable,
+            dpg.add_button(label="刷新界面", callback=refreshOutputRegistersTable,
                            tag="refreshOutputRegistersTableButton")
             outputRegisterValueGroup = dpg.add_group(horizontal=True)
             dpg.move_item("randomiseOutputRegistersButton", parent=outputRegisterValueGroup)
@@ -600,7 +600,7 @@ with dpg.window(tag="Primary Window", width=800):
                                 dpg.add_text(f"{rowval}")
                             else:
                                 dpg.add_input_text(tag="outputregisters" + str(i * REGISTERSPERROW + j),
-                                                   callback=outputRegisterTextChanged, decimal=True, width=40,
+                                                   callback=outputRegisterTextChanged, decimal=True, width=75,
                                                    user_data=i * REGISTERSPERROW + j)
 
 dpg.create_viewport(title='pyModbusServerGUI')
