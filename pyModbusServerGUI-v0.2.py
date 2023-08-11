@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # pyModbusServerGUI
 # Original source: https://github.com/unixhead/pyModbusServerGUI
 
@@ -158,17 +159,17 @@ def startModbusServer(sender, app_data, user_data):
     modbusPcsServer.setPort(dpg.get_value("serverPort"))
 
     if modbusPcsServer.startServer():
-        dpg.configure_item("serverStatus", default_value="Running")
+        dpg.configure_item("serverStatus", default_value="运行中")
         dpg.bind_item_theme("serverStatus", green_bg_theme)
     else:
-        dpg.configure_item("serverStatus", default_value="Not Running")
+        dpg.configure_item("serverStatus", default_value="停止")
         dpg.bind_item_theme("serverStatus", red_bg_theme)
 
 
 def stopModbusServer(sender, app_data, user_data):
     if modbusPcsServer.checkRunning():  # if it's not running then don't do anything
         if modbusPcsServer.stopServer():  # try to stop the server
-            dpg.configure_item("serverStatus", default_value="Not Running")
+            dpg.configure_item("serverStatus", default_value="停止")
             dpg.bind_item_theme("serverStatus", red_bg_theme)
         else:
             dpg.configure_item("serverStatus", default_value="Error stopping server")
@@ -422,8 +423,16 @@ def on_modbus_type_selected(sender, data):
 
 # Uses open Sans font from https://github.com/adobe-fonts/source-sans
 # License for this font: https://github.com/adobe-fonts/source-sans/blob/release/LICENSE.md
+# with dpg.font_registry():
+#     default_font = dpg.add_font("SourceSans3-Regular.otf", 20)
+
+# # 注册字体，自选字体
 with dpg.font_registry():
-    default_font = dpg.add_font("SourceSans3-Regular.otf", 20)
+    with dpg.font("Adobe Fangsong Std.otf", 20) as font:  # 增加中文编码范围，防止问号
+        dpg.add_font_range_hint(dpg.mvFontRangeHint_Default)
+        dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Simplified_Common)
+        dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)
+    default_font = font
 
 with dpg.theme() as green_bg_theme:
     with dpg.theme_component(dpg.mvAll):
@@ -435,7 +444,7 @@ with dpg.theme() as red_bg_theme:
 
 with dpg.window(tag="Primary Window", width=800):
     dpg.bind_font(default_font)
-    dpg.add_text("Modbus/TCP Server Address:", tag="serverText")
+    dpg.add_text("Modbus/TCP 服务器地址:", tag="serverText")
 
     # get list of all available IPs and offer to user in a dropdown list
     from netifaces import interfaces, ifaddresses, AF_INET
@@ -446,28 +455,30 @@ with dpg.window(tag="Primary Window", width=800):
         for link in ifaddresses(interface).get(AF_INET, ()):
             ip_list.append(link['addr'])
 
-    dpg.add_combo((ip_list), default_value=ip_list[0], tag="serverAddress", width=250, indent=200)
+    dpg.add_combo(ip_list, default_value=ip_list[0], tag="serverAddress", width=250, indent=300)
     serverAddressGroup = dpg.add_group(horizontal=True)
     dpg.move_item("serverText", parent=serverAddressGroup)
     dpg.move_item("serverAddress", parent=serverAddressGroup)
 
-    dpg.add_text("Port:", tag="serverPortText")
-    dpg.add_input_text(default_value="10502", tag="serverPort", width=100, indent=200)
+    dpg.add_text("端口号:", tag="serverPortText")
+    dpg.add_input_text(default_value="10502", tag="serverPort", width=100, indent=300)
 
+    deviceTypeGroup = dpg.add_group(horizontal=True)
+    dpg.add_text("设备类型:", tag="deviceTypeText", parent=deviceTypeGroup)
     # 设置MODBUS的下拉框选项
     modbus_combo = dpg.add_combo(("Modbus PCS", "Modbus BMS"), default_value="Modbus PCS", tag="modbusType", width=250,
-                                 indent=200)
+                                 indent=300, parent=deviceTypeGroup)
     dpg.set_item_callback(modbus_combo, on_modbus_type_selected)
 
     serverPortGroup = dpg.add_group(horizontal=True)
     dpg.move_item("serverPortText", parent=serverPortGroup)
     dpg.move_item("serverPort", parent=serverPortGroup)
 
-    dpg.add_button(label="Start Server", callback=startModbusServer, tag="startServerButton")
-    dpg.add_button(label="Stop Server", callback=stopModbusServer, tag="stopServerButton")
-    dpg.add_button(label="Check Server", callback=checkModbusServer, tag="checkServerButton")
-    dpg.add_text("Status:", tag="serverStatusText")
-    dpg.add_input_text(default_value="Not Running", tag="serverStatus", width=150, readonly=True, indent=200)
+    dpg.add_button(label="开启服务", callback=startModbusServer, tag="startServerButton")
+    dpg.add_button(label="停止服务", callback=stopModbusServer, tag="stopServerButton")
+    dpg.add_button(label="确认服务", callback=checkModbusServer, tag="checkServerButton")
+    dpg.add_text("状态:", tag="serverStatusText")
+    dpg.add_input_text(default_value="停止", tag="serverStatus", width=150, readonly=True, indent=300)
     serverStatusGroup = dpg.add_group(horizontal=True)
     dpg.move_item("serverStatusText", parent=serverStatusGroup)
     dpg.move_item("serverStatus", parent=serverStatusGroup)
@@ -477,7 +488,7 @@ with dpg.window(tag="Primary Window", width=800):
 
     # 1-9999 - discrete output coils R/W - binary
     # At the moment it is R/O, the backend server library may let clients write values but they won't be reflected in the GUI
-    with dpg.collapsing_header(label="Discrete Output Coil Values GUI"):
+    with dpg.collapsing_header(label="离散输出线圈值"):
         with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _coil_child_window:
 
             dpg.add_button(label="Randomise Coil Values", callback=randomiseCoils, tag="randomiseCoilsButton")
@@ -510,7 +521,7 @@ with dpg.window(tag="Primary Window", width=800):
                                                  user_data=(COILSPERROW * i + j))
                                 dpg.highlight_table_cell(coil_table_id, i, j, [230, 0, 0, 100])
 
-    with dpg.collapsing_header(label="Discrete Output Coil Values CSV Entry"):
+    with dpg.collapsing_header(label="导入CSV设置离散输出线圈值"):
         dpg.add_text("Enter comma separated list of coil values as integer values in range 1-9999")
         dpg.add_input_text(default_value="", tag="coilValueInputText", multiline=True)
         dpg.add_button(label="Set Coil Values", callback=setManualCoils, tag="setManualCoilsButton")
