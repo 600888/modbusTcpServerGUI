@@ -529,7 +529,7 @@ with dpg.window(tag="Primary Window", width=800):
 
     # 30001 - 39999 - analog input registers - R/O - 16 bit int
     with dpg.collapsing_header(
-            label="Analogue Input Register Values GUI - Doesn't yet update if values are changed by client"):
+            label="模拟输入寄存器值GUI，如果客户端更改了值，需手动点击刷新按钮才能更新GUI"):
         with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _register_child_window:
 
             dpg.add_button(label="Randomise Input Register Values", callback=randomiseRegisters,
