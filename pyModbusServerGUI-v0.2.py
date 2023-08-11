@@ -1,121 +1,4 @@
-# -*- coding: utf-8 -*-
-# pyModbusServerGUI
-# Original source: https://github.com/unixhead/pyModbusServerGUI
-
-# Beerware license
-
-# Uses PyModbusTCP for all the hard work
-# https://github.com/sourceperl/pyModbusTCP
-#
-# Includes specific version of pyModbusTCP as the one installed by pip doesn't seem to include the new databank structure at time of writing
-
-#
-# Needs dearpygui and pymodbusTCP, run:
-# pip install dearpygui pyModbusTCP
-#
-# Not sure if you need pyModbusTCP installed given I've bundled it, but it's that way on my test machine. 
-# Presumably at some point pip will install the new version and I won't need to bundle it.
-#
-
-from pyModbusTCP.server import ModbusServer, ModbusServerDataBank
-import time
-
-
-class ModbusPcsServer:
-    running = False
-    address = "127.0.0.1"
-    port = 10502
-    serverObj = False  # server object from pyModbusTCP library
-    dataBank = False
-
-    def __init__(self):
-        # databank object is used by pyModbusTCP to store the response values
-        self.dataBank = ModbusServerDataBank()
-
-    def startServer(self):
-        if self.checkRunning() == True:
-            return True
-
-        self.serverObj = ModbusServer(host=self.address, port=self.port, no_block=True, data_bank=self.dataBank)
-        self.serverObj.start()
-
-        # Wait 2 seconds for everything to settle and then check our status
-        time.sleep(2)
-        return self.checkRunning()
-
-    def stopServer(self):
-        self.serverObj.stop()
-        time.sleep(2)  # wait 2 seconds for it to settle
-        if self.checkRunning() == False:
-            self.serverObj = False
-            return True
-        else:
-            return False
-
-    def setCoilBits(self, coilList):
-        self.debugLog("setCoilBits with array size: " + str(len(coilList)))
-        # self.debugLog("array: " + str(coilList))
-
-        if self.checkRunning() == False:
-            self.debugLog("set coils called without live server")
-            return False
-
-        # self.data_hdl.dataBank.set_coils(0, coilList)
-        self.serverObj.data_hdl.write_coils(0, coilList, "None")
-
-    def setRegisterValues(self, registerList, type="input"):
-        self.debugLog("setRegisterValues with array size: " + str(len(registerList)))
-        if not self.checkRunning():
-            self.debugLog("set registers called without live server")
-            return False
-
-        if type == "output":
-            self.serverObj.data_hdl.data_bank.set_holding_registers(40000, registerList)
-        else:
-            self.serverObj.data_hdl.data_bank.set_input_registers(30000, registerList)
-
-    def readRegisterValues(self, type="input"):
-        if not self.checkRunning():
-            self.debugLog("read registers called without live server")
-            return False
-
-        if type == "output":
-            return self.serverObj.data_hdl.data_bank.get_holding_registers(40000, 9999)
-        else:
-            return self.serverObj.data_hdl.data_bank.get_input_registers(30000, 9999)
-
-    def clearRegisterValues(self, type="input"):
-        if type == "output":
-            self.serverObj.data_hdl.data_bank.set_holding_registers(40000, [0] * 9999)
-        else:
-            self.serverObj.data_hdl.data_bank.set_input_registers(30000, [0] * 9999)
-
-    def clearCoilBits(self):
-        self.serverObj.data_hdl.write_coils(0, [0] * 9999, "None")
-
-    def setAddress(self, data):
-        self.address = data
-
-    def setPort(self, data):
-        self.port = int(data)
-
-    def checkRunning(self):
-        if self.serverObj == False:
-            self.debugLog("Server not running")
-            return False
-
-        if self.serverObj.is_run == True:
-            self.running = True
-            self.debugLog("Server Running")
-            return True
-        else:
-            self.running = False
-            self.debugLog("Server not running")
-            return False
-
-    def debugLog(self, data=None):
-        print(data)
-
+from modbus_server import ModbusPcsServerGUI
 
 #
 # Code to draw the GUI
@@ -130,7 +13,7 @@ class ModbusPcsServer:
 import dearpygui.dearpygui as dpg
 import random
 
-modbusPcsServer = ModbusPcsServer()
+modbusServer = ModbusPcsServerGUI()
 
 NUMCOILS = 1000  # number of coils we allow user to configure in the GUI, if this is too large then the display is unusable
 COILSPERROW = 40  # how many coil tickboxes to display in each table row
@@ -154,10 +37,10 @@ def debugLog(text):
 
 
 def startModbusServer(sender, app_data, user_data):
-    modbusPcsServer.setAddress(dpg.get_value("serverAddress"))
-    modbusPcsServer.setPort(dpg.get_value("serverPort"))
+    modbusServer.setAddress(dpg.get_value("serverAddress"))
+    modbusServer.setPort(dpg.get_value("serverPort"))
 
-    if modbusPcsServer.startServer():
+    if modbusServer.startServer():
         dpg.configure_item("serverStatus", default_value="运行中")
         dpg.bind_item_theme("serverStatus", green_bg_theme)
     else:
@@ -166,8 +49,8 @@ def startModbusServer(sender, app_data, user_data):
 
 
 def stopModbusServer(sender, app_data, user_data):
-    if modbusPcsServer.checkRunning():  # if it's not running then don't do anything
-        if modbusPcsServer.stopServer():  # try to stop the server
+    if modbusServer.checkRunning():  # if it's not running then don't do anything
+        if modbusServer.stopServer():  # try to stop the server
             dpg.configure_item("serverStatus", default_value="停止")
             dpg.bind_item_theme("serverStatus", red_bg_theme)
         else:
@@ -177,7 +60,7 @@ def stopModbusServer(sender, app_data, user_data):
 # modbusTCP 服务器收到消息后自动刷新界面
 
 def checkModbusServer(sender, app_data):
-    modbusPcsServer.checkRunning()
+    modbusServer.checkRunning()
 
 
 def coilClicked(sender, app_data, user_data):
@@ -206,7 +89,7 @@ def coilClicked(sender, app_data, user_data):
 
     # debugLog("coilClicked:" + str(coilList)   )
 
-    modbusPcsServer.setCoilBits(coilList)
+    modbusServer.setCoilBits(coilList)
 
 
 def randomiseCoils(sender, app_data, user_data):
@@ -244,7 +127,7 @@ def randomiseCoils(sender, app_data, user_data):
             coilList[i] = 0;
 
     # debugLog("RandomiseCoils array:" + str(coilList))
-    modbusPcsServer.setCoilBits(coilList)
+    modbusServer.setCoilBits(coilList)
 
 
 def clearCoils(sender, app_data, user_data):
@@ -271,7 +154,7 @@ def clearCoils(sender, app_data, user_data):
     coilList = [0] * MAXCOILS
 
     # debugLog("ClearCoils: " + str(coilList))
-    modbusPcsServer.clearCoilBits()
+    modbusServer.clearCoilBits()
 
 
 def setManualCoils(sender, app_data, user_data):
@@ -300,7 +183,7 @@ def setManualCoils(sender, app_data, user_data):
                 val = int(origList[i])
                 coilList[val] = 1
 
-        modbusPcsServer.setCoilBits(coilList)
+        modbusServer.setCoilBits(coilList)
         dpg.configure_item("coilValueStatusText", default_value="List Set")
         dpg.bind_item_theme("coilValueStatusText", green_bg_theme)
 
@@ -317,7 +200,7 @@ def randomiseRegisters(sender, app_data, user_data):
             dpg.configure_item("registers" + str(i), default_value=randRegisterValue)  # set table entry to zero
         except:  # not sure why this sometimes fails
             debugLog("failed to update GUI field: registers" + str(i))
-    modbusPcsServer.setRegisterValues(registerList)
+    modbusServer.setRegisterValues(registerList)
 
 
 def clearRegisters(sender, app_data, user_data):
@@ -332,7 +215,7 @@ def clearRegisters(sender, app_data, user_data):
     registerList = [0] * MAXREGISTERS
 
     # debugLog("ClearCoils: " + str(coilList))
-    modbusPcsServer.clearRegisterValues("input")
+    modbusServer.clearRegisterValues("input")
 
 
 def registerTextChanged(sender, app_data, user_data):
@@ -345,7 +228,7 @@ def registerTextChanged(sender, app_data, user_data):
 
     registerList[user_data] = app_data;
     # debugLog("registerTextChanged: " + str(registerList))
-    modbusPcsServer.setRegisterValues(registerList, "input")
+    modbusServer.setRegisterValues(registerList, "input")
 
 
 def randomiseOutputRegisters(sender, app_data, user_data):
@@ -360,13 +243,13 @@ def randomiseOutputRegisters(sender, app_data, user_data):
             dpg.configure_item("outputregisters" + str(i), default_value=randRegisterValue)
         except:  # not sure why this sometimes fails
             debugLog("failed to update GUI field: outputregisters" + str(i))
-    modbusPcsServer.setRegisterValues(outputRegisterList, "output")
+    modbusServer.setRegisterValues(outputRegisterList, "output")
 
 
 def refreshOutputRegistersTable(sender, app_data, user_data):
     debugLog(f"refreshCoils - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     global outputRegisterList
-    tempRegisterList = modbusPcsServer.readRegisterValues("output")
+    tempRegisterList = modbusServer.readRegisterValues("output")
     for i in range(0, 9999):
         outputRegisterList[i] = tempRegisterList[i]
     for i in range(1, NUMREGISTERS):
@@ -374,7 +257,7 @@ def refreshOutputRegistersTable(sender, app_data, user_data):
             dpg.configure_item("outputregisters" + str(i), default_value=outputRegisterList[i])
         except:  # not sure why this sometimes fails
             debugLog("failed to update GUI field: outputregisters" + str(i))
-    modbusPcsServer.setRegisterValues(outputRegisterList, "output")
+    modbusServer.setRegisterValues(outputRegisterList, "output")
 
 
 def clearOutputRegisters(sender, app_data, user_data):
@@ -389,7 +272,7 @@ def clearOutputRegisters(sender, app_data, user_data):
     outputRegisterList = [0] * MAXREGISTERS
 
     # debugLog("ClearCoils: " + str(coilList))
-    modbusPcsServer.clearRegisterValues("output")
+    modbusServer.clearRegisterValues("output")
 
 
 def outputRegisterTextChanged(sender, app_data, user_data):
@@ -401,7 +284,7 @@ def outputRegisterTextChanged(sender, app_data, user_data):
         dpg.configure_item(sender, default_value="0")
 
     outputRegisterList[user_data] = app_data;
-    modbusPcsServer.setRegisterValues(outputRegisterList, "output")
+    modbusServer.setRegisterValues(outputRegisterList, "output")
 
 
 def _log(sender, app_data, user_data):
