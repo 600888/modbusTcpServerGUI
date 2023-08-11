@@ -2,6 +2,7 @@
 import string
 from binascii import unhexlify
 import random
+
 from pymodbus.utilities import computeCRC
 
 from .constants import READ_COILS, READ_DISCRETE_INPUTS, READ_HOLDING_REGISTERS, READ_INPUT_REGISTERS, \
@@ -19,7 +20,7 @@ from warnings import warn
 try:
     from socketserver import BaseRequestHandler, ThreadingTCPServer
 except ImportError:
-    from SocketServer import BaseRequestHandler, ThreadingTCPServer
+    from socketserver import BaseRequestHandler, ThreadingTCPServer
 
 
 class DataBank:
@@ -461,6 +462,47 @@ class ModbusServer:
                         break
             return data
 
+        def initRegister(self):
+            # 初始化40000~40002寄存器
+            for i in range(3):
+                # 范围在0-4000的随机数据
+                data = random.randint(0, 4000)
+                data = hex(data)[2:].zfill(4)
+                data_str = str(data)
+                print(data_str)
+
+                val = []
+                val.append(int(data_str[0:4], 16))
+
+                reg_addr = str(hex(40000 + i)[2:].zfill(4))
+                ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
+
+            # 初始化40003~40006寄存器
+            for i in range(4):
+                # 范围在0-1000的随机数据
+                data = random.randint(0, 1000)
+                data = hex(data)[2:].zfill(4)
+                data_str = str(data)
+                print(data_str)
+
+                val = []
+                val.append(int(data_str[0:4], 16))
+
+                reg_addr = str(hex(40003 + i)[2:].zfill(4))
+                ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
+
+            # 初始化40008 寄存器： 遥信数据
+            binary_data = [bin(i)[2:].zfill(16) for i in range(65536)]
+            decimal_data = [int(binary, 2) for binary in binary_data]
+            random_number = random.choice(decimal_data)
+            print(random_number)
+
+            val = []
+            val.append(random_number)
+
+            reg_addr = str(hex(40008)[2:].zfill(4))
+            ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
+
         def handle(self):
             # data = b'Hello, world!'
             # self._send_all(data)
@@ -471,110 +513,93 @@ class ModbusServer:
                 if not self.server._evt_running.is_set():
                     break
 
-                # 初始化40000~40002寄存器
                 if not flag:
-                    for i in range(3):
-                        # 范围在0-4000的随机数据
-                        data = random.randint(0, 4000)
-                        data = hex(data)[2:].zfill(4)
-                        data_str = str(data)
-                        print(data_str)
-
-                        val = []
-                        val.append(int(data_str[0:2], 16))  # 高位
-                        val.append(int(data_str[2:4], 16))  # 低位
-
-                        reg_addr = str(hex(40000 + i)[2:].zfill(4))
-                        ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
-
-                    # 初始化40003~40005寄存器
-                    for i in range(3):
-                        # 范围在0-1000的随机数据
-                        data = random.randint(0, 1000)
-                        data = hex(data)[2:].zfill(4)
-                        data_str = str(data)
-                        print(data_str)
-
-                        val = []
-                        val.append(int(data_str[0:2], 16))  # 高位
-                        val.append(int(data_str[2:4], 16))  # 低位
-
-                        reg_addr = str(hex(40003 + i)[2:].zfill(4))
-                        ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
+                    self.initRegister()
 
                 flag = True
 
                 reply_messge = ""
                 recive_messge = ""
 
-                # 打印请求信息
-                print("收到以下客户端的请求:" + str(self.client_address))
-                dev_addr = self._recv(2).decode("utf-8")
-                print("设备地址为:" + dev_addr)
+                try:
+                    # 打印请求信息
+                    print("收到以下客户端的请求:" + str(self.client_address))
+                    dev_addr = self._recv(2).decode("utf-8")
+                    print("设备地址为:" + dev_addr)
 
-                reply_messge += dev_addr
-                recive_messge += dev_addr
+                    reply_messge += dev_addr
+                    recive_messge += dev_addr
 
-                # 读取功能码
-                func_code = self._recv(2).decode("utf-8")
-                print("功能码为:" + func_code)
+                    # 读取功能码
+                    func_code = self._recv(2).decode("utf-8")
+                    print("功能码为:" + func_code)
 
-                reply_messge += func_code
-                recive_messge += func_code
+                    reply_messge += func_code
+                    recive_messge += func_code
 
-                # 读取寄存器地址
-                reg_addr = self._recv(4).decode("utf-8")
-                recive_messge += reg_addr
-                print("寄存器地址为:" + reg_addr)
+                    # 读取寄存器地址
+                    reg_addr = self._recv(4).decode("utf-8")
+                    recive_messge += reg_addr
+                    print("寄存器地址为:" + reg_addr)
 
-                # 数据
-                data = self._recv(4).decode("utf-8")
-                recive_messge += data
-                print("数据为:" + data)
+                    # 数据
+                    data = self._recv(4).decode("utf-8")
+                    recive_messge += data
+                    print("数据为:" + data)
+                except Exception as e:
+                    print("接收数据出错")
 
-                # 对于不同的功能码进行处理
-                if func_code == "03":  # 读保持寄存器
-                    ret = self.server.data_hdl.read_h_regs(int(reg_addr, 16), int(data, 16) * 2, None)
-                    if ret.ok:
-                        hex_cnt = int(data, 16) * 2
-                        hex_str = str(hex_cnt).zfill(2)
-                        reply_messge += hex_str
-                        print(ret.data)
-                        # add requested words
-                        for i in range(0, len(ret.data)):
-                            reply_messge += str(ret.data[i]).zfill(2)
-                elif func_code == "04":  # 读输入寄存器
-                    ret = self.server.data_hdl.read_i_regs(int(reg_addr, 16), int(data, 16), None)
-                    if ret.ok:
-                        hex_cnt = int(data, 16)
-                        hex_str = str(hex_cnt).zfill(2)
-                        reply_messge += hex_str
-                        print(ret.data)
-                        # add requested words
-                        for i in range(0, len(ret.data)):
-                            reply_messge += str(ret.data[i])
-                elif func_code == "06":  # 写单个寄存器
-                    val = []
-                    val.append(int(data[0:2], 16))  # 高位
-                    val.append(int(data[2:4], 16))  # 低位
-                    print(val)
-                    ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
-                    reply_messge += reg_addr
-                    reply_messge += data
+                try:
+                    # 对于不同的功能码进行处理
+                    if func_code == "03":  # 读保持寄存器
+                        ret = self.server.data_hdl.read_h_regs(int(reg_addr, 16), int(data, 16), None)
+                        if ret.ok:
+                            hex_cnt = hex(int(data, 16) * 2)[2:].zfill(2).upper()  # 字节数，一个寄存器两个字节
+                            hex_str = str(hex_cnt).zfill(2).upper()
+                            reply_messge += hex_str
+                            print(ret.data)
+                            # add requested words
+                            for i in range(0, len(ret.data)):
+                                val = int(ret.data[i])
+                                reply_messge += str(hex(val)[2:]).zfill(4).upper()  # 一个数据2个字节
+                    elif func_code == "04":  # 读输入寄存器
+                        ret = self.server.data_hdl.read_i_regs(int(reg_addr, 16), int(data, 16), None)
+                        if ret.ok:
+                            hex_cnt = hex(int(data, 16) * 2)[2:].zfill(2).upper()  # 字节数，一个寄存器两个字节
+                            hex_str = str(hex_cnt).zfill(2).upper()
+                            reply_messge += hex_str
+                            print(ret.data)
+                            # add requested words
+                            for i in range(0, len(ret.data)):
+                                val = int(ret.data[i])
+                                reply_messge += str(hex(val)[2:]).zfill(4).upper()  # 一个数据2个字节
+                    elif func_code == "06":  # 写单个寄存器
+                        val = [int(data[0:4], 16)]
+                        print(val)
+                        ret = self.server.data_hdl.write_h_regs(int(reg_addr, 16), val, None)
+                        reply_messge += reg_addr
+                        reply_messge += data
+                except Exception as e:
+                    print("功能码读取时遇到异常！！！！！！！！！！！！！！！！！！！！！！！！！！！")
 
-                # 计算CRC校验
-                crc_code = '{:04X}'.format(computeCRC(unhexlify(recive_messge)))
-                print("计算得到的CRC校验为:" + crc_code)
-                reply_messge += crc_code
+                try:
+                    # 计算CRC校验
+                    crc_code = '{:04X}'.format(computeCRC(unhexlify(recive_messge)))
+                    print("计算得到的CRC校验为:" + crc_code)
+                    reply_messge += crc_code
 
-                # 读取CRC校验
-                crc = self._recv(4).decode("utf-8")
-                recive_messge += crc
-                print("收到的请求信息为:" + recive_messge)
+                    # 读取CRC校验
+                    crc = self._recv(4).decode("utf-8")
+                    recive_messge += crc
+                    print("收到的请求信息为:" + recive_messge)
 
-                if crc_code.upper() != crc.upper():
-                    print("CRC校验失败")
-                    continue
+                    if crc_code.upper() != crc.upper():
+                        print("回复信息为:" + reply_messge)
+                        print("CRC校验失败")
+                        continue
+                except Exception as e:
+                    print("收到的请求信息为:" + recive_messge)
+                    print("CRC校验遇到异常！！！！！！！！！！！！！！！！！！！！！！！！！！！！！")
 
                 # 打印回复信息
                 print("回复信息为:" + reply_messge)
