@@ -17,7 +17,6 @@
 # Presumably at some point pip will install the new version and I won't need to bundle it.
 #
 
-
 from pyModbusTCP.server import ModbusServer, ModbusServerDataBank
 import time
 
