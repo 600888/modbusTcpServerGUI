@@ -14,7 +14,7 @@ class ModbusServerGUI:
         self.dataBank = ModbusServerDataBank()
 
     def startServer(self):
-        if self.checkRunning() == True:
+        if self.checkRunning():
             return True
 
         self.serverObj = ModbusServer(host=self.address, port=self.port, no_block=True, data_bank=self.dataBank)
@@ -27,7 +27,7 @@ class ModbusServerGUI:
     def stopServer(self):
         self.serverObj.stop()
         time.sleep(2)  # wait 2 seconds for it to settle
-        if self.checkRunning() == False:
+        if not self.checkRunning():
             self.serverObj = False
             return True
         else:
@@ -37,7 +37,7 @@ class ModbusServerGUI:
         self.debugLog("setCoilBits with array size: " + str(len(coilList)))
         # self.debugLog("array: " + str(coilList))
 
-        if self.checkRunning() == False:
+        if not self.checkRunning():
             self.debugLog("set coils called without live server")
             return False
 
@@ -81,11 +81,11 @@ class ModbusServerGUI:
         self.port = int(data)
 
     def checkRunning(self):
-        if self.serverObj == False:
+        if not self.serverObj:
             self.debugLog("Server not running")
             return False
 
-        if self.serverObj.is_run == True:
+        if self.serverObj.is_run:
             self.running = True
             self.debugLog("Server Running")
             return True
@@ -99,4 +99,8 @@ class ModbusServerGUI:
 
 
 class ModbusPcsServerGUI(ModbusServerGUI):
+    pass
+
+
+class ModbusBmsServerGUI(ModbusServerGUI):
     pass

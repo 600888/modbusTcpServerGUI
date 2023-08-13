@@ -1,15 +1,4 @@
 from modbus_server import ModbusPcsServerGUI
-
-#
-# Code to draw the GUI
-#
-# Supported ranges:
-# 1-9999 - discrete output coils R/W - binary
-# 10001 - 19999 - discrete input contacts R/O - binary
-# 30001 - 39999 - analog input registers - R/O - 16 bit int
-# 40001 - 49999 - analog output holding registers - R/W - 16 bit int
-#
-
 import dearpygui.dearpygui as dpg
 import random
 
@@ -302,11 +291,6 @@ def on_modbus_type_selected(sender, data):
         # 执行 Modbus BMS 相关逻辑
         pass
 
-
-# Uses open Sans font from https://github.com/adobe-fonts/source-sans
-# License for this font: https://github.com/adobe-fonts/source-sans/blob/release/LICENSE.md
-# with dpg.font_registry():
-#     default_font = dpg.add_font("SourceSans3-Regular.otf", 20)
 
 # # 注册字体，自选字体
 with dpg.font_registry():
