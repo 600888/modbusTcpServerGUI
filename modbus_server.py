@@ -78,7 +78,11 @@ class ModbusServerGUI:
         self.address = data
 
     def setPort(self, data):
-        self.port = int(data)
+        try:
+            self.port = int(data)
+        except ValueError as e:
+            self.debugLog("Invalid port number!")
+            raise ValueError("Invalid port number!")
 
     def checkRunning(self):
         if not self.serverObj:
@@ -94,7 +98,8 @@ class ModbusServerGUI:
             self.debugLog("Server not running")
             return False
 
-    def debugLog(self, data=None):
+    @staticmethod
+    def debugLog(data=None):
         print(data)
 
 

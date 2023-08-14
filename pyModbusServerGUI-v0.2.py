@@ -1,8 +1,6 @@
-from modbus_server import ModbusPcsServerGUI
+from modbus_server import ModbusPcsServerGUI, ModbusBmsServerGUI
 import dearpygui.dearpygui as dpg
 import random
-
-modbusServer = ModbusPcsServerGUI()
 
 NUMCOILS = 1000  # number of coils we allow user to configure in the GUI, if this is too large then the display is unusable
 COILSPERROW = 40  # how many coil tickboxes to display in each table row
@@ -19,15 +17,38 @@ outputRegisterList = [0] * MAXREGISTERS
 
 dpg.create_context()
 
+modbusServer = None
+
 
 # print any debug info text into console
 def debugLog(text):
     print(str(text))
 
 
+def setItemDisabled():
+    dpg.disable_item("serverAddress")
+    dpg.disable_item("serverPort")
+    dpg.disable_item("modbusType")
+
+
+def setItemEnabled():
+    dpg.enable_item("serverAddress")
+    dpg.enable_item("serverPort")
+    dpg.enable_item("modbusType")
+
+
 def startModbusServer(sender, app_data, user_data):
-    modbusServer.setAddress(dpg.get_value("serverAddress"))
-    modbusServer.setPort(dpg.get_value("serverPort"))
+    global modbusServer
+    try:
+        modbusServer.setAddress(dpg.get_value("serverAddress"))
+        modbusServer.setPort(dpg.get_value("serverPort"))
+    except ValueError as e:
+        with dpg.window(label="Error Window", tag="error", width=300, height=200):
+            dpg.add_text(str(e))
+            dpg.add_button(label="OK", callback=lambda: dpg.delete_item("error"))
+        return
+
+    setItemDisabled()
 
     if modbusServer.startServer():
         dpg.configure_item("serverStatus", default_value="运行中")
@@ -38,6 +59,7 @@ def startModbusServer(sender, app_data, user_data):
 
 
 def stopModbusServer(sender, app_data, user_data):
+    setItemEnabled()
     if modbusServer.checkRunning():  # if it's not running then don't do anything
         if modbusServer.stopServer():  # try to stop the server
             dpg.configure_item("serverStatus", default_value="停止")
@@ -281,12 +303,15 @@ def _log(sender, app_data, user_data):
 
 
 def on_modbus_type_selected(sender, data):
+    global modbusServer
     modbus_type = dpg.get_value(sender)
     if modbus_type == "Modbus PCS":
+        modbusServer = ModbusPcsServerGUI()
         print("Modbus PCS")
         # 执行 Modbus PCS 相关逻辑
         pass
-    elif modbus_type == "Modbus BMS":
+    else:
+        modbusServer = ModbusBmsServerGUI()
         print("Modbus BMS")
         # 执行 Modbus BMS 相关逻辑
         pass
@@ -334,6 +359,7 @@ with dpg.window(tag="Primary Window", width=1000):
     # 设置MODBUS的下拉框选项
     modbus_combo = dpg.add_combo(("Modbus PCS", "Modbus BMS"), default_value="Modbus PCS", tag="modbusType", width=250,
                                  indent=300, parent=deviceTypeGroup)
+    on_modbus_type_selected(modbus_combo, None)
     dpg.set_item_callback(modbus_combo, on_modbus_type_selected)
 
     serverPortGroup = dpg.add_group(horizontal=True)
@@ -470,6 +496,11 @@ with dpg.window(tag="Primary Window", width=1000):
                                                    user_data=i * REGISTERSPERROW + j)
 
 dpg.create_viewport(title='pyModbusServerGUI')
+
+# 设置主窗口图标
+dpg.set_viewport_large_icon("m.ico")
+# 设置任务栏图标
+dpg.set_viewport_small_icon("m.ico")
 
 dpg.setup_dearpygui()
 dpg.show_viewport()
