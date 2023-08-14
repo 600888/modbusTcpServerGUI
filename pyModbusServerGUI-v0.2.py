@@ -497,11 +497,6 @@ with dpg.window(tag="Primary Window", width=1000):
 
 dpg.create_viewport(title='pyModbusServerGUI')
 
-# 设置主窗口图标
-dpg.set_viewport_large_icon("m.ico")
-# 设置任务栏图标
-dpg.set_viewport_small_icon("m.ico")
-
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.set_primary_window("Primary Window", True)

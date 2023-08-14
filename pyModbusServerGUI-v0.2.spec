@@ -3,14 +3,12 @@
 
 block_cipher = None
 
-icon="./m.ico",
 
 a = Analysis(
     ['pyModbusServerGUI-v0.2.py'],
     pathex=[],
     binaries=[],
-    #添加所有的包到可执行文件中，包括字体文件
-    datas=[('./pyModbusTCP/*.py', '.'),('./modbus_server.py','.'),('./Adobe Fangsong Std.otf', '.'),('./m.ico', '.')],
+    datas=[('./pyModbusTCP/*.py', '.'),('./modbus_server.py','.'),('./Adobe Fangsong Std.otf', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
