@@ -1,4 +1,4 @@
-from modbus_server import ModbusPcsServerGUI, ModbusBmsServerGUI
+from device.modbus_server import ModbusPcsServerGUI, ModbusBmsServerGUI
 import dearpygui.dearpygui as dpg
 import random
 
@@ -147,11 +147,11 @@ def clearCoils(sender, app_data, user_data):
     global coilList
 
     for i in range(1, MAXCOILROWS * COILSPERROW):
-        if (i < COILSPERROW):
+        if i < COILSPERROW:
             row = 0
             col = i
         else:
-            if ((i % COILSPERROW) == 0):
+            if (i % COILSPERROW) == 0:
                 col = COILSPERROW
                 row = int(i / COILSPERROW) - 1
             else:
@@ -271,6 +271,68 @@ def refreshOutputRegistersTable(sender, app_data, user_data):
     modbusServer.setRegisterValues(outputRegisterList, "output")
 
 
+# 设置单个电芯值
+def setCellValues(sender, app_data, user_data):
+    with dpg.window(label="设置单个电芯值", modal=True, show=False, tag="cell", no_title_bar=True):
+        dpg.add_text("设置单个电芯值!")
+        dpg.add_separator()
+
+        # 3个电池簇
+        cluster_group = dpg.add_group(horizontal=True)
+        cluster_id_list = ['0', '1', '2']
+        dpg.add_text("电池簇ID:", tag="cluster_id_text", parent=cluster_group)
+        dpg.add_combo(cluster_id_list, default_value=cluster_id_list[0], tag="cluster_id", width=250, indent=300)
+        dpg.move_item("cluster_id", parent=cluster_group)
+
+        # 10个电池模组
+        pack_group = dpg.add_group(horizontal=True)
+        pack_id_list = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+        dpg.add_text("电池模组ID:", tag="pack_id_text", parent=pack_group)
+        dpg.add_combo(pack_id_list, default_value=pack_id_list[0], tag="pack_id", width=250, indent=300)
+        dpg.move_item("pack_id", parent=pack_group)
+
+        # 24个电芯
+        cell_group = dpg.add_group(horizontal=True)
+        cell_id = []
+        for i in range(0, 24):
+            cell_id.append(str(i))
+        dpg.add_text("电芯ID:", tag="cell_id_text", parent=cell_group)
+        dpg.add_combo(cell_id, default_value=cell_id[0], tag="cell_id", width=250, indent=300)
+        dpg.move_item("cell_id", parent=cell_group)
+
+        # 电芯电压地址
+        cell_vol_address_group = dpg.add_group(horizontal=True)
+        dpg.add_input_text(label="电芯电压地址", tag="cell_voltage_address", width=100)
+        dpg.move_item("cell_voltage_address", parent=cell_vol_address_group)
+        dpg.add_input_text(label="电芯电压", tag="cell_voltage", width=100)
+        dpg.move_item("cell_voltage", parent=cell_vol_address_group)
+
+        # 电芯温度地址
+        cell_temp_address_group = dpg.add_group(horizontal=True)
+        dpg.add_input_text(label="电芯温度地址", tag="cell_temperature_address", width=100)
+        dpg.move_item("cell_temperature_address", parent=cell_temp_address_group)
+        dpg.add_input_text(label="电芯温度", tag="cell_temperature", width=100)
+        dpg.move_item("cell_temperature", parent=cell_temp_address_group)
+
+        def setCellOK(sender, app_data, user_data):
+            cluster_id = int(dpg.get_value("cluster_id"))
+            pack_id = int(dpg.get_value("pack_id"))
+            cell_id = int(dpg.get_value("cell_id"))
+            cell_voltage_address = str(dpg.get_value("cell_voltage_address"))
+            cell_voltage = str(dpg.get_value("cell_voltage"))
+            cell_temperature_address = str(dpg.get_value("cell_temperature_address"))
+            cell_temperature = str(dpg.get_value("cell_temperature"))
+            modbusServer.setCellValues(cluster_id, pack_id, cell_id, cell_voltage_address, cell_voltage,
+                                       cell_temperature_address, cell_temperature)
+            dpg.delete_item("cell")
+
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="确定", tag="ok", width=100, callback=setCellOK)
+            dpg.add_button(label="取消", tag="cancel", width=100,
+                           callback=lambda: dpg.delete_item("cell"))
+    dpg.configure_item("cell", show=True)
+
+
 def clearOutputRegisters(sender, app_data, user_data):
     debugLog(f"clearOutputRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
@@ -319,7 +381,7 @@ def on_modbus_type_selected(sender, data):
 
 # # 注册字体，自选字体
 with dpg.font_registry():
-    with dpg.font("Adobe Fangsong Std.otf", 25) as font:  # 增加中文编码范围，防止问号
+    with dpg.font("resources/Adobe Fangsong Std.otf", 25) as font:  # 增加中文编码范围，防止问号
         dpg.add_font_range_hint(dpg.mvFontRangeHint_Default)
         dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Simplified_Common)
         dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)
@@ -413,10 +475,10 @@ with dpg.window(tag="Primary Window", width=1000):
                                                  user_data=(COILSPERROW * i + j))
                                 dpg.highlight_table_cell(coil_table_id, i, j, [230, 0, 0, 100])
 
-    with dpg.collapsing_header(label="导入CSV设置离散输出线圈值"):
+    with dpg.collapsing_header(label="导入CSV设置离散输入寄存器"):
         dpg.add_text("输入以逗号分隔的线圈值列表作为1-9999地址范围内的整数值")
         dpg.add_input_text(default_value="", tag="coilValueInputText", multiline=True)
-        dpg.add_button(label="设置线圈值", callback=setManualCoils, tag="setManualCoilsButton")
+        dpg.add_button(label="设置离散量输入值", callback=setManualCoils, tag="setManualCoilsButton")
         dpg.add_input_text(default_value="状态", tag="coilValueStatusText", readonly=True)
 
     # 30001 - 39999 - 输入寄存器 - R/O - 16 bit int
@@ -466,10 +528,13 @@ with dpg.window(tag="Primary Window", width=1000):
                            tag="clearOutputRegistersButton")
             dpg.add_button(label="刷新界面", callback=refreshOutputRegistersTable,
                            tag="refreshOutputRegistersTableButton")
+            dpg.add_button(label="设置单个电芯值", callback=setCellValues,
+                           tag="setCellValuesButton")
             outputRegisterValueGroup = dpg.add_group(horizontal=True)
             dpg.move_item("randomiseOutputRegistersButton", parent=outputRegisterValueGroup)
             dpg.move_item("clearOutputRegistersButton", parent=outputRegisterValueGroup)
             dpg.move_item("refreshOutputRegistersTableButton", parent=outputRegisterValueGroup)
+            dpg.move_item("setCellValuesButton", parent=outputRegisterValueGroup)
 
             # grid allowing entry of values 1-MAXREGISTERS
 
@@ -496,11 +561,6 @@ with dpg.window(tag="Primary Window", width=1000):
                                                    user_data=i * REGISTERSPERROW + j)
 
 dpg.create_viewport(title='pyModbusServerGUI')
-
-# 设置主窗口图标
-dpg.set_viewport_large_icon("m.ico")
-# 设置任务栏图标
-dpg.set_viewport_small_icon("m.ico")
 
 dpg.setup_dearpygui()
 dpg.show_viewport()

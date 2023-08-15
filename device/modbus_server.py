@@ -1,4 +1,5 @@
 from pyModbusTCP.server import ModbusServer, ModbusServerDataBank
+from device.bms import Cluster, Pack, Cell
 import time
 
 
@@ -108,4 +109,39 @@ class ModbusPcsServerGUI(ModbusServerGUI):
 
 
 class ModbusBmsServerGUI(ModbusServerGUI):
-    pass
+    clusterList = []
+
+    def __init__(self):
+        super().__init__()
+        # 一个BMS中有3簇，每簇10个模组，每个pack有24个电芯
+        for i in range(0, 3):
+            self.clusterList.append(Cluster())
+            for j in range(0, 10):
+                self.clusterList[i].PackList.append(Pack())
+                for k in range(0, 24):
+                    self.clusterList[i].PackList[j].CellList.append(Cell())
+
+    # 根据地址设置值
+    def setValueByAddress(self, address, value):
+        val = [value]
+        self.serverObj.data_hdl.write_h_regs(int(address, 10), val, None)
+
+    # 设置单个电芯的值
+    def setCellValues(self, cluster_id, pack_id, cell_id, vol_address, voltage, temperature_address, temperature):
+        self.clusterList[cluster_id].PackList[pack_id].CellList[cell_id].setValue(cell_id, voltage, temperature,
+                                                                                  vol_address, temperature_address)
+        print("cluster_id: " + str(cluster_id) + " pack_id: " + str(pack_id) + " cell_id: " + str(
+            cell_id) + " vol_address: " + str(vol_address) + " voltage: " + str(
+            voltage) + " temperature_address: " + str(
+            temperature_address) + " temperature: " + str(temperature))
+        self.setValueByAddress(vol_address, voltage)
+        self.setValueByAddress(temperature_address, temperature)
+
+        # 设置单个pack的值
+
+    def setPackValues(self, address, voltage, temperature):
+        pass
+
+    # 设置单个簇的值
+    def setClusterValues(self, cluster_id, pack_id, cell_id, address, voltage, temperature):
+        pass
