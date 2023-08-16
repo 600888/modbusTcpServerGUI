@@ -2,6 +2,8 @@ from device.modbus_server import ModbusPcsServerGUI, ModbusBmsServerGUI
 import dearpygui.dearpygui as dpg
 import random
 
+from pyModbusTCP.logger import log
+
 NUMCOILS = 1000  # number of coils we allow user to configure in the GUI, if this is too large then the display is unusable
 COILSPERROW = 40  # how many coil tickboxes to display in each table row
 MAXCOILROWS = int(NUMCOILS / COILSPERROW)
@@ -22,7 +24,7 @@ modbusServer = None
 
 # print any debug info text into console
 def debugLog(text):
-    print(str(text))
+    log.debug(text)
 
 
 def setItemDisabled():
@@ -93,10 +95,10 @@ def coilClicked(sender, app_data, user_data):
     # debugLog("row: " + str(row) + " col: " + str(col))
     if (app_data == True):  # the box was ticked
         dpg.highlight_table_cell(coil_table_id, row, col, [0, 230, 0, 100])
-        coilList[user_data] = 1;
+        coilList[user_data] = 1
     else:  # the box was unticked from previously being selected
         dpg.highlight_table_cell(coil_table_id, row, col, [230, 0, 0, 100])
-        coilList[user_data] = 0;
+        coilList[user_data] = 0
 
     # debugLog("coilClicked:" + str(coilList)   )
 
@@ -120,7 +122,7 @@ def randomiseCoils(sender, app_data, user_data):
                 col = i % COILSPERROW
                 row = int(i / COILSPERROW)
 
-        if (random.randint(0, 100) > 50):
+        if random.randint(0, 100) > 50:
             dpg.highlight_table_cell(coil_table_id, row, col, [0, 230, 0, 100])
             coilList[i] = 1;
             # print("coils" + str(i))
@@ -135,7 +137,7 @@ def randomiseCoils(sender, app_data, user_data):
                 dpg.highlight_table_cell(coil_table_id, row, col, [230, 0, 0, 100])
             except:
                 debugLog("failed to update coil value to false for:" + str(i))
-            coilList[i] = 0;
+            coilList[i] = 0
 
     # debugLog("RandomiseCoils array:" + str(coilList))
     modbusServer.setCoilBits(coilList)
@@ -229,6 +231,20 @@ def clearRegisters(sender, app_data, user_data):
     modbusServer.clearRegisterValues("input")
 
 
+def refreshRegisters(sender, app_data, user_data):
+    debugLog(f"refreshRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
+    global registerList
+    tempRegisterList = modbusServer.readRegisterValues("input")
+    for i in range(0, 9999):
+        registerList[i] = tempRegisterList[i]
+    for i in range(1, NUMREGISTERS):
+        try:
+            dpg.configure_item("registers" + str(i), default_value=registerList[i])
+        except:  # not sure why this sometimes fails
+            debugLog("failed to update GUI field: registers" + str(i))
+    modbusServer.setRegisterValues(registerList)
+
+
 def registerTextChanged(sender, app_data, user_data):
     debugLog(f"registerTextChangedsender - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
@@ -237,7 +253,7 @@ def registerTextChanged(sender, app_data, user_data):
         app_data = 0
         dpg.configure_item(sender, default_value="0")
 
-    registerList[user_data] = app_data;
+    registerList[user_data] = app_data
     # debugLog("registerTextChanged: " + str(registerList))
     modbusServer.setRegisterValues(registerList, "input")
 
@@ -322,8 +338,8 @@ def setCellValues(sender, app_data, user_data):
             cell_voltage = str(dpg.get_value("cell_voltage"))
             cell_temperature_address = str(dpg.get_value("cell_temperature_address"))
             cell_temperature = str(dpg.get_value("cell_temperature"))
-            modbusServer.setCellValues(cluster_id, pack_id, cell_id, cell_voltage_address, cell_voltage,
-                                       cell_temperature_address, cell_temperature)
+            modbusServer.setSingleCellValues(cluster_id, pack_id, cell_id, cell_voltage_address, cell_voltage,
+                                             cell_temperature_address, cell_temperature)
             dpg.delete_item("cell")
 
         with dpg.group(horizontal=True):
@@ -369,12 +385,12 @@ def on_modbus_type_selected(sender, data):
     modbus_type = dpg.get_value(sender)
     if modbus_type == "Modbus PCS":
         modbusServer = ModbusPcsServerGUI()
-        print("Modbus PCS")
+        log.info("Modbus PCS")
         # 执行 Modbus PCS 相关逻辑
         pass
     else:
         modbusServer = ModbusBmsServerGUI()
-        print("Modbus BMS")
+        log.info("Modbus BMS")
         # 执行 Modbus BMS 相关逻辑
         pass
 
@@ -489,9 +505,11 @@ with dpg.window(tag="Primary Window", width=1000):
             dpg.add_button(label="随机生成输入寄存器值", callback=randomiseRegisters,
                            tag="randomiseRegistersButton")
             dpg.add_button(label="清空输入寄存器值", callback=clearRegisters, tag="clearRegistersButton")
+            dpg.add_button(label="刷新界面", callback=refreshRegisters, tag="refreshRegistersButton")
             registerValueGroup = dpg.add_group(horizontal=True)
             dpg.move_item("randomiseRegistersButton", parent=registerValueGroup)
             dpg.move_item("clearRegistersButton", parent=registerValueGroup)
+            dpg.move_item("refreshRegistersButton", parent=registerValueGroup)
 
             # grid allowing entry of values 1-MAXREGISTERS
 

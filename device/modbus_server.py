@@ -1,4 +1,4 @@
-from pyModbusTCP.server import ModbusServer, ModbusServerDataBank
+from pyModbusTCP.server import ModbusServer, ModbusServerDataBank, log
 from device.bms import Cluster, Pack, Cell
 import time
 
@@ -82,12 +82,12 @@ class ModbusServerGUI:
         try:
             self.port = int(data)
         except ValueError as e:
-            self.debugLog("Invalid port number!")
+            self.errorLog("Invalid port number!")
             raise ValueError("Invalid port number!")
 
     def checkRunning(self):
         if not self.serverObj:
-            self.debugLog("Server not running")
+            self.errorLog("Server not running")
             return False
 
         if self.serverObj.is_run:
@@ -96,12 +96,29 @@ class ModbusServerGUI:
             return True
         else:
             self.running = False
-            self.debugLog("Server not running")
+            self.errorLog("Server not running")
             return False
+
+    # 根据地址设置值
+    def setValueByAddress(self, address, value, type="output"):
+        # 如果值为空，则设置一个默认值
+        if not address:
+            address = "40000"
+        if not value:
+            value = "0"
+        val = [str(value)]
+        if type == "output":
+            self.serverObj.data_hdl.write_h_regs(int(str(address), 10), val, None)
+        else:
+            self.serverObj.data_hdl.write_i_regs(int(str(address), 10), val)
 
     @staticmethod
     def debugLog(data=None):
-        print(data)
+        log.info(data)
+
+    @staticmethod
+    def errorLog(data=None):
+        log.error(data)
 
 
 class ModbusPcsServerGUI(ModbusServerGUI):
@@ -121,24 +138,22 @@ class ModbusBmsServerGUI(ModbusServerGUI):
                 for k in range(0, 24):
                     self.clusterList[i].PackList[j].CellList.append(Cell())
 
-    # 根据地址设置值
-    def setValueByAddress(self, address, value):
-        val = [value]
-        self.serverObj.data_hdl.write_h_regs(int(address, 10), val, None)
-
     # 设置单个电芯的值
-    def setCellValues(self, cluster_id, pack_id, cell_id, vol_address, voltage, temperature_address, temperature):
+    def setSingleCellValues(self, cluster_id, pack_id, cell_id, vol_address, voltage, temperature_address, temperature):
         self.clusterList[cluster_id].PackList[pack_id].CellList[cell_id].setValue(cell_id, voltage, temperature,
                                                                                   vol_address, temperature_address)
-        print("cluster_id: " + str(cluster_id) + " pack_id: " + str(pack_id) + " cell_id: " + str(
+        log.debug("cluster_id: " + str(cluster_id) + " pack_id: " + str(pack_id) + " cell_id: " + str(
             cell_id) + " vol_address: " + str(vol_address) + " voltage: " + str(
             voltage) + " temperature_address: " + str(
             temperature_address) + " temperature: " + str(temperature))
-        self.setValueByAddress(vol_address, voltage)
-        self.setValueByAddress(temperature_address, temperature)
+        self.setValueByAddress(vol_address, voltage, "input")
+        self.setValueByAddress(temperature_address, temperature, "input")
 
-        # 设置单个pack的值
+    # 获取单个电芯的值
+    def getSingleCellValues(self, cluster_id, pack_id, cell_id):
+        return self.clusterList[cluster_id].PackList[pack_id].CellList[cell_id]
 
+    # 设置单个pack的值
     def setPackValues(self, address, voltage, temperature):
         pass
 

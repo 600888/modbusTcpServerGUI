@@ -34,6 +34,18 @@ def read_simulation(test_cnt):
         print(str + crc_code)
 
 
+# 指定读取某个输入寄存器的值
+def read_simulation_by_address(address):
+    print("read_simulation_by_address")
+    str = ""
+    str += "0104"  # 设备地址和功能码
+    str += '{:04X}'.format(address)  # 寄存器地址
+    reg_cnt = 1
+    str += '{:04X}'.format(reg_cnt)  # 数据
+    crc_code = '{:04X}'.format(computeCRC(unhexlify(str)))
+    print(str + crc_code)
+
+
 if __name__ == '__main__':
     write_simulation(10)
     # read_simulation(10)

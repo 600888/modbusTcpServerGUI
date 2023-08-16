@@ -15,6 +15,7 @@ import socket
 import struct
 from threading import Lock, Thread, Event
 from warnings import warn
+from pyModbusTCP.logger import log
 
 # python2 compatibility
 try:
@@ -422,6 +423,16 @@ class ModbusServerDataHandler:
         else:
             return DataHandlerReturn(exp_code=EXP_DATA_ADDRESS)
 
+    # 仅在服务端可以使用，客户端无法修改输入寄存器
+    def write_i_regs(self, address, words_l):
+        # write words to DataBank
+        update_ok = self.data_bank.set_input_registers(address, words_l)
+        # return DataStatus to server
+        if update_ok:
+            return DataHandlerReturn(exp_code=EXP_NONE)
+        else:
+            return DataHandlerReturn(exp_code=EXP_DATA_ADDRESS)
+
 
 class ModbusServer:
     """ Modbus TCP server """
@@ -469,7 +480,7 @@ class ModbusServer:
                 data = random.randint(0, 4000)
                 data = hex(data)[2:].zfill(4)
                 data_str = str(data)
-                print(data_str)
+                log.debug(data_str)
 
                 val = []
                 val.append(int(data_str[0:4], 16))
@@ -483,7 +494,7 @@ class ModbusServer:
                 data = random.randint(0, 1000)
                 data = hex(data)[2:].zfill(4)
                 data_str = str(data)
-                print(data_str)
+                log.debug(data_str)
 
                 val = []
                 val.append(int(data_str[0:4], 16))
@@ -495,7 +506,7 @@ class ModbusServer:
             binary_data = [bin(i)[2:].zfill(16) for i in range(65536)]
             decimal_data = [int(binary, 2) for binary in binary_data]
             random_number = random.choice(decimal_data)
-            print(random_number)
+            log.debug(random_number)
 
             val = []
             val.append(random_number)
@@ -523,16 +534,16 @@ class ModbusServer:
 
                 try:
                     # 打印请求信息
-                    print("收到以下客户端的请求:" + str(self.client_address))
+                    log.info("收到以下客户端的请求:" + str(self.client_address))
                     dev_addr = self._recv(2).decode("utf-8")
-                    print("设备地址为:" + dev_addr)
+                    log.info("设备地址为:" + dev_addr)
 
                     reply_message += dev_addr
                     receive_message += dev_addr
 
                     # 读取功能码
                     func_code = self._recv(2).decode("utf-8")
-                    print("功能码为:" + func_code)
+                    log.info("功能码为:" + func_code)
 
                     reply_message += func_code
                     receive_message += func_code
@@ -540,14 +551,14 @@ class ModbusServer:
                     # 读取寄存器地址
                     reg_addr = self._recv(4).decode("utf-8")
                     receive_message += reg_addr
-                    print("寄存器地址为:" + reg_addr)
+                    log.info("寄存器地址为:" + reg_addr)
 
                     # 数据
                     data = self._recv(4).decode("utf-8")
                     receive_message += data
-                    print("数据为:" + data)
+                    log.info("数据为:" + data)
                 except Exception as e:
-                    print("接收数据出错")
+                    log.error("接收数据出错")
 
                 try:
                     # 对于不同的功能码进行处理
@@ -557,7 +568,7 @@ class ModbusServer:
                             hex_cnt = hex(int(data, 16) * 2)[2:].zfill(2).upper()  # 字节数，一个寄存器两个字节
                             hex_str = str(hex_cnt).zfill(2).upper()
                             reply_message += hex_str
-                            print(ret.data)
+                            log.debug(ret.data)
                             # add requested words
                             for i in range(0, len(ret.data)):
                                 val = int(ret.data[i])
@@ -568,7 +579,7 @@ class ModbusServer:
                             hex_cnt = hex(int(data, 16) * 2)[2:].zfill(2).upper()  # 字节数，一个寄存器两个字节
                             hex_str = str(hex_cnt).zfill(2).upper()
                             reply_message += hex_str
-                            print(ret.data)
+                            log.debug(ret.data)
                             # add requested words
                             for i in range(0, len(ret.data)):
                                 val = int(ret.data[i])
@@ -580,29 +591,29 @@ class ModbusServer:
                         reply_message += reg_addr
                         reply_message += data
                 except Exception as e:
-                    print("功能码读取时遇到异常！！！！！！！！！！！！！！！！！！！！！！！！！！！")
+                    log.error("功能码读取时遇到异常！")
 
                 try:
                     # 计算CRC校验
                     crc_code = '{:04X}'.format(computeCRC(unhexlify(receive_message)))
-                    print("计算得到的CRC校验为:" + crc_code)
+                    log.info("计算得到的CRC校验为:" + crc_code)
                     reply_message += crc_code
 
                     # 读取CRC校验
                     crc = self._recv(4).decode("utf-8")
                     receive_message += crc
-                    print("收到的请求信息为:" + receive_message)
+                    log.info("收到的请求信息为:" + receive_message)
 
                     if crc_code.upper() != crc.upper():
-                        print("回复信息为:" + reply_message)
-                        print("CRC校验失败")
+                        log.info("回复信息为:" + reply_message)
+                        log.error("CRC校验失败")
                         continue
                 except Exception as e:
-                    print("收到的请求信息为:" + receive_message)
-                    print("CRC校验遇到异常！！！！！！！！！！！！！！！！！！！！！！！！！！！！！")
+                    log.info("收到的请求信息为:" + receive_message)
+                    log.error("CRC校验遇到异常！")
 
                 # 打印回复信息
-                print("回复信息为:" + reply_message)
+                log.info("回复信息为:" + reply_message)
                 self._send_all(reply_message.encode('utf-8'))
 
                 # receive mbap from client
