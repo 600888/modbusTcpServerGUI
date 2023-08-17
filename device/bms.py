@@ -5,29 +5,231 @@ from dataclasses import dataclass
 class Cluster:
     cluster_id = 0
     PackList = []
-    pass
+
+    # 簇的值
+    voltage = 0
+    current = 0
+    temperature = 0
+    soc = 0
+
+    # 簇的寄存器地址
+    vol_address = 0
+    current_address = 0
+    temperature_address = 0
+    soc_address = 0
+
+    def getVoltage(self):
+        voltage = 0
+        return int(self.PackList[0].voltage)
+
+    def getCurrent(self):
+        current = 0
+        for pack in self.PackList:
+            current += pack.current
+        return int(current)
+
+    def getTemperature(self):
+        # 假设簇的温度为所有模组的温度的平均值
+        temperature = 0
+        for pack in self.PackList:
+            temperature += pack.temperature
+        temperature = temperature / len(self.PackList)
+        return int(temperature)
+
+    def getSoc(self):
+        # 假设簇的soc为所有模组的soc的平均值
+        soc = 0
+        for pack in self.PackList:
+            soc += pack.soc
+        soc = soc / len(self.PackList)
+        return int(soc)
+
+    def getMaxVoltage(self):
+        # 每个模组的最大电压的最大值
+        return max(self.PackList, key=lambda x: x.getMaxVoltage()).getMaxVoltage()
+
+    def getMinVoltage(self):
+        # 每个模组的最小电压的最小值
+        return min(self.PackList, key=lambda x: x.getMinVoltage()).getMinVoltage()
+
+    def getMaxCurrent(self):
+        # 每个模组的最大电流的最大值
+        return max(self.PackList, key=lambda x: x.getMaxCurrent()).getMaxCurrent()
+
+    def getMinCurrent(self):
+        # 每个模组的最小电流的最小值
+        return min(self.PackList, key=lambda x: x.getMinCurrent()).getMinCurrent()
+
+    def getMaxTemperature(self):
+        # 每个模组的最大温度的最大值
+        return max(self.PackList, key=lambda x: x.getMaxTemperature()).getMaxTemperature()
+
+    def getMinTemperature(self):
+        # 每个模组的最小温度的最小值
+        return min(self.PackList, key=lambda x: x.getMinTemperature()).getMinTemperature()
+
+    def getMaxSoc(self):
+        # 每个模组的最大soc的最大值
+        return max(self.PackList, key=lambda x: x.getMaxSoc()).getMaxSoc()
+
+    def getMinSoc(self):
+        # 每个模组的最小soc的最小值
+        return min(self.PackList, key=lambda x: x.getMinSoc()).getMinSoc()
+
+    def setValue(self):
+        self.voltage = self.getVoltage()
+        self.current = self.getCurrent()
+        self.temperature = self.getTemperature()
+        self.soc = self.getSoc()
+
+    def setClusterId(self, cluster_id):
+        self.cluster_id = cluster_id
+
+    def setValAddress(self):
+        self.vol_address = 30000 + 750 + self.cluster_id + 1
+        self.current_address = 31000 + 750 + self.cluster_id + 1
+        self.temperature_address = 32000 + 750 + self.cluster_id + 1
+        self.soc_address = 33000 + 750 + self.cluster_id + 1
 
 
 @dataclass
 class Pack:
-    pack_id = 0
     CellList = []
-    pass
+
+    # 模组id
+    cluster_id = 0
+    pack_id = 0
+
+    # 模组的值
+    voltage = 0
+    current = 0
+    temperature = 0
+    soc = 0
+
+    # 模组值的寄存器地址
+    vol_address = 0
+    current_address = 0
+    temperature_address = 0
+    soc_address = 0
+
+    # 串并联数量，几串几并
+    series = 0
+    parallel = 0
+
+    def setSeriesParallel(self, series, parallel):
+        self.series = series
+        self.parallel = parallel
+
+    def getVoltage(self):
+        voltage = 0
+        # 根据串并联数量计算模组的电压
+        if self.parallel == 0:
+            for cell in self.CellList:
+                voltage += cell.voltage
+        else:
+            for cell in len(self.CellList) / self.parallel:
+                voltage += cell.voltage
+        return int(voltage)
+
+    def getCurrent(self):
+        current = 0
+        # 根据串并联数量计算模组的电流
+        if self.series == 0:
+            return self.CellList[0].current
+        else:
+            for cell in len(self.CellList) / self.series:
+                current += cell.current
+        return int(current)
+
+    def getTemperature(self):
+        # 假设模组的温度为所有电芯的温度的平均值
+        temperature = 0
+        for cell in self.CellList:
+            temperature += cell.temperature
+        temperature = temperature / len(self.CellList)
+        return int(temperature)
+
+    def getSoc(self):
+        # 假设模组的soc为所有电芯的soc的平均值
+        soc = 0
+        for cell in self.CellList:
+            soc += cell.soc
+        soc = soc / len(self.CellList)
+        return int(soc)
+
+    def getMaxVoltage(self):
+        return max(self.CellList, key=lambda x: x.voltage).voltage
+
+    def getMinVoltage(self):
+        return min(self.CellList, key=lambda x: x.voltage).voltage
+
+    def getMaxCurrent(self):
+        return max(self.CellList, key=lambda x: x.current).current
+
+    def getMinCurrent(self):
+        return min(self.CellList, key=lambda x: x.current).current
+
+    def getMaxTemperature(self):
+        return max(self.CellList, key=lambda x: x.temperature).temperature
+
+    def getMinTemperature(self):
+        return min(self.CellList, key=lambda x: x.temperature).temperature
+
+    def getMaxSoc(self):
+        return max(self.CellList, key=lambda x: x.soc).soc
+
+    def getMinSoc(self):
+        return min(self.CellList, key=lambda x: x.soc).soc
+
+    def setValue(self):
+        self.voltage = self.getVoltage()
+        self.current = self.getCurrent()
+        self.temperature = self.getTemperature()
+        self.soc = self.getSoc()
+
+    def setPackId(self, cluster_id, pack_id):
+        self.cluster_id = cluster_id
+        self.pack_id = pack_id
+
+    def setValAddress(self):
+        self.vol_address = 30000 + 720 + self.cluster_id * 10 + self.pack_id + 1
+        self.current_address = 31000 + 720 + self.cluster_id * 10 + self.pack_id + 1
+        self.temperature_address = 32000 + 720 + self.cluster_id * 10 + self.pack_id + 1
+        self.soc_address = 33000 + 720 + self.cluster_id * 10 + self.pack_id + 1
 
 
 @dataclass
 class Cell:
+    # 电芯的id
+    cluster_id = 0
+    pack_id = 0
     cell_id = 0
+
+    # 电芯的值
     voltage = 0
+    current = 0
     temperature = 0
     soc = 0
-    vol_address = 0
-    temperature_address = 0
 
-    def setValue(self, cell_id, voltage, temperature, vol_address, temperature_address, soc=0):
-        self.cell_id = cell_id
+    # 电芯值的寄存器地址
+    vol_address = 0
+    current_address = 0
+    temperature_address = 0
+    soc_address = 0
+
+    def setValue(self, voltage, current, temperature, soc):
         self.voltage = voltage
+        self.current = current
         self.temperature = temperature
-        self.vol_address = vol_address
-        self.temperature_address = temperature_address
         self.soc = soc
+
+    def setCellId(self, cluster_id, pack_id, cell_id):
+        self.cluster_id = cluster_id
+        self.pack_id = pack_id
+        self.cell_id = cell_id
+
+    def setValAddress(self):
+        self.vol_address = 30000 + self.cluster_id * 240 + self.pack_id * 24 + self.cell_id + 1
+        self.current_address = 31000 + self.cluster_id * 240 + self.pack_id * 24 + self.cell_id + 1
+        self.temperature_address = 32000 + self.cluster_id * 240 + self.pack_id * 24 + self.cell_id + 1
+        self.soc_address = 33000 + self.cluster_id * 240 + self.pack_id * 24 + self.cell_id + 1

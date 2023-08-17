@@ -1,16 +1,19 @@
+import threading
+import time
+
 from device.modbus_server import ModbusPcsServerGUI, ModbusBmsServerGUI
 import dearpygui.dearpygui as dpg
 import random
 
 from pyModbusTCP.logger import log
 
-NUMCOILS = 1000  # number of coils we allow user to configure in the GUI, if this is too large then the display is unusable
+NUMCOILS = 3000  # number of coils we allow user to configure in the GUI, if this is too large then the display is unusable
 COILSPERROW = 40  # how many coil tickboxes to display in each table row
 MAXCOILROWS = int(NUMCOILS / COILSPERROW)
 MAXCOILS = 9999  # maximum size of coil list that can be imported
 coilList = [0] * MAXCOILS
 
-NUMREGISTERS = 1000  # number of registers that can be entered in the GUI
+NUMREGISTERS = 3000  # number of registers that can be entered in the GUI
 REGISTERSPERROW = 20  # how many to display on one row of the table
 MAXREGISTERROWS = int(NUMREGISTERS / REGISTERSPERROW)
 MAXREGISTERS = 9999
@@ -233,6 +236,7 @@ def clearRegisters(sender, app_data, user_data):
 
 def refreshRegisters(sender, app_data, user_data):
     debugLog(f"refreshRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
+    startModbusServer("uNF", "uNF", "uNF")
     global registerList
     tempRegisterList = modbusServer.readRegisterValues("input")
     for i in range(0, 9999):
@@ -258,6 +262,28 @@ def registerTextChanged(sender, app_data, user_data):
     modbusServer.setRegisterValues(registerList, "input")
 
 
+# 自动刷新输入寄存器
+def autoRefreshRegisters(sender, app_data, user_data):
+    def refeshRegistersThread(sender, app_data, user_data):
+        while True:
+            setRandomCellValues(sender, app_data, user_data)
+            refreshRegisters(sender, app_data, user_data)
+            time.sleep(1)
+
+    debugLog(f"autoRefreshRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
+    # 开启一个python线程每秒刷新一次
+    global thread
+    thread = threading.Thread(target=refeshRegistersThread, args=(sender, app_data, user_data))
+    thread.start()
+
+
+# 停止自动刷新输入寄存器
+def stopRefreshRegisters(sender, app_data, user_data):
+    debugLog(f"stopRefreshRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
+    global thread
+    thread.join()
+
+
 def randomiseOutputRegisters(sender, app_data, user_data):
     debugLog(f"randomiseOutputRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
@@ -275,6 +301,7 @@ def randomiseOutputRegisters(sender, app_data, user_data):
 
 def refreshOutputRegistersTable(sender, app_data, user_data):
     debugLog(f"refreshCoils - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
+    startModbusServer("uNF", "uNF", "uNF")
     global outputRegisterList
     tempRegisterList = modbusServer.readRegisterValues("output")
     for i in range(0, 9999):
@@ -289,6 +316,7 @@ def refreshOutputRegistersTable(sender, app_data, user_data):
 
 # 设置单个电芯值
 def setCellValues(sender, app_data, user_data):
+    startModbusServer("uNF", "uNF", "uNF")
     with dpg.window(label="设置单个电芯值", modal=True, show=False, tag="cell", no_title_bar=True):
         dpg.add_text("设置单个电芯值!")
         dpg.add_separator()
@@ -316,30 +344,34 @@ def setCellValues(sender, app_data, user_data):
         dpg.add_combo(cell_id, default_value=cell_id[0], tag="cell_id", width=250, indent=300)
         dpg.move_item("cell_id", parent=cell_group)
 
-        # 电芯电压地址
-        cell_vol_address_group = dpg.add_group(horizontal=True)
-        dpg.add_input_text(label="电芯电压地址", tag="cell_voltage_address", width=100)
-        dpg.move_item("cell_voltage_address", parent=cell_vol_address_group)
+        # 电芯电压
+        cell_vol_group = dpg.add_group(horizontal=True)
         dpg.add_input_text(label="电芯电压", tag="cell_voltage", width=100)
-        dpg.move_item("cell_voltage", parent=cell_vol_address_group)
+        dpg.move_item("cell_voltage", parent=cell_vol_group)
 
-        # 电芯温度地址
-        cell_temp_address_group = dpg.add_group(horizontal=True)
-        dpg.add_input_text(label="电芯温度地址", tag="cell_temperature_address", width=100)
-        dpg.move_item("cell_temperature_address", parent=cell_temp_address_group)
+        # 电芯温度
+        cell_temp_group = dpg.add_group(horizontal=True)
         dpg.add_input_text(label="电芯温度", tag="cell_temperature", width=100)
-        dpg.move_item("cell_temperature", parent=cell_temp_address_group)
+        dpg.move_item("cell_temperature", parent=cell_temp_group)
+
+        # 电芯SOC
+        cell_soc_group = dpg.add_group(horizontal=True)
+        dpg.add_input_text(label="电芯SOC", tag="cell_soc", width=100)
+        dpg.move_item("cell_soc", parent=cell_soc_group)
 
         def setCellOK(sender, app_data, user_data):
             cluster_id = int(dpg.get_value("cluster_id"))
             pack_id = int(dpg.get_value("pack_id"))
             cell_id = int(dpg.get_value("cell_id"))
-            cell_voltage_address = str(dpg.get_value("cell_voltage_address"))
+            log.debug("cluster_id: " + str(cluster_id) + " pack_id: " + str(pack_id) + " cell_id: " + str(cell_id))
+            cell = modbusServer.getSingleCellValues(cluster_id, pack_id, cell_id)
+            log.debug("vol_address: " + str(cell.vol_address) + " temperature_address: " + str(
+                cell.temperature_address) + " soc_address: " + str(cell.soc_address))
             cell_voltage = str(dpg.get_value("cell_voltage"))
-            cell_temperature_address = str(dpg.get_value("cell_temperature_address"))
             cell_temperature = str(dpg.get_value("cell_temperature"))
-            modbusServer.setSingleCellValues(cluster_id, pack_id, cell_id, cell_voltage_address, cell_voltage,
-                                             cell_temperature_address, cell_temperature)
+            cell_soc = str(dpg.get_value("cell_soc"))
+            cell.setValue(cell_voltage, cell_temperature, cell_soc)
+            modbusServer.setSingleCellValues(cell)
             dpg.delete_item("cell")
 
         with dpg.group(horizontal=True):
@@ -395,7 +427,12 @@ def on_modbus_type_selected(sender, data):
         pass
 
 
-# # 注册字体，自选字体
+def setRandomCellValues(sender, app_data, user_data):
+    global modbusServer
+    modbusServer.setRandomCellValues()
+
+
+# 注册字体，自选字体
 with dpg.font_registry():
     with dpg.font("resources/Adobe Fangsong Std.otf", 25) as font:  # 增加中文编码范围，防止问号
         dpg.add_font_range_hint(dpg.mvFontRangeHint_Default)
@@ -456,6 +493,15 @@ with dpg.window(tag="Primary Window", width=1000):
     dpg.move_item("stopServerButton", parent=serverStatusGroup)
     dpg.move_item("checkServerButton", parent=serverStatusGroup)
 
+    # 设置电芯数据
+    dpg.add_button(label="设置单个电芯值", callback=setCellValues,
+                   tag="setCellValuesButton")
+    dpg.add_button(label="随机设置所有电芯值", callback=setRandomCellValues,
+                   tag="randomiseAllCellButton")
+    setValueGroup = dpg.add_group(horizontal=True)
+    dpg.move_item("setCellValuesButton", parent=setValueGroup)
+    dpg.move_item("randomiseAllCellButton", parent=setValueGroup)
+
     # 1-9999 - discrete output coils R/W - binary
     # At the moment it is R/O, the backend server library may let clients write values but they won't be reflected in the GUI
     with dpg.collapsing_header(label="离散输出线圈值"):
@@ -505,11 +551,15 @@ with dpg.window(tag="Primary Window", width=1000):
             dpg.add_button(label="随机生成输入寄存器值", callback=randomiseRegisters,
                            tag="randomiseRegistersButton")
             dpg.add_button(label="清空输入寄存器值", callback=clearRegisters, tag="clearRegistersButton")
-            dpg.add_button(label="刷新界面", callback=refreshRegisters, tag="refreshRegistersButton")
+            dpg.add_button(label="刷新", callback=refreshRegisters, tag="refreshRegistersButton")
+            dpg.add_button(label="自动刷新", callback=autoRefreshRegisters, tag="autoRefreshRegistersButton")
+            dpg.add_button(label="停止刷新", callback=stopRefreshRegisters, tag="stopRefreshRegistersButton")
             registerValueGroup = dpg.add_group(horizontal=True)
             dpg.move_item("randomiseRegistersButton", parent=registerValueGroup)
             dpg.move_item("clearRegistersButton", parent=registerValueGroup)
             dpg.move_item("refreshRegistersButton", parent=registerValueGroup)
+            dpg.move_item("autoRefreshRegistersButton", parent=registerValueGroup)
+            dpg.move_item("stopRefreshRegistersButton", parent=registerValueGroup)
 
             # grid allowing entry of values 1-MAXREGISTERS
 
@@ -546,13 +596,10 @@ with dpg.window(tag="Primary Window", width=1000):
                            tag="clearOutputRegistersButton")
             dpg.add_button(label="刷新界面", callback=refreshOutputRegistersTable,
                            tag="refreshOutputRegistersTableButton")
-            dpg.add_button(label="设置单个电芯值", callback=setCellValues,
-                           tag="setCellValuesButton")
             outputRegisterValueGroup = dpg.add_group(horizontal=True)
             dpg.move_item("randomiseOutputRegistersButton", parent=outputRegisterValueGroup)
             dpg.move_item("clearOutputRegistersButton", parent=outputRegisterValueGroup)
             dpg.move_item("refreshOutputRegistersTableButton", parent=outputRegisterValueGroup)
-            dpg.move_item("setCellValuesButton", parent=outputRegisterValueGroup)
 
             # grid allowing entry of values 1-MAXREGISTERS
 

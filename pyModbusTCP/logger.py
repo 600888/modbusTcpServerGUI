@@ -216,5 +216,5 @@ class Log():
         self.error('%s: %s' % info[:2])
 
 
-log = Log(filename='log/modbus_server.log', mode='a', cmdlevel='DEBUG', filelevel='DEBUG', limit=204800,
-          backup_count=10, colorful=True)
+log = Log(filename='log/modbus_server.log', mode='a', cmdlevel='DEBUG', filelevel='DEBUG', limit=2048000,
+          backup_count=10, when='D', colorful=True)

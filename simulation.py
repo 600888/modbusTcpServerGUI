@@ -38,7 +38,7 @@ def read_simulation(test_cnt):
 def read_simulation_by_address(address):
     print("read_simulation_by_address")
     str = ""
-    str += "0104"  # 设备地址和功能码
+    str += "0103"  # 设备地址和功能码
     str += '{:04X}'.format(address)  # 寄存器地址
     reg_cnt = 1
     str += '{:04X}'.format(reg_cnt)  # 数据
@@ -47,5 +47,6 @@ def read_simulation_by_address(address):
 
 
 if __name__ == '__main__':
-    write_simulation(10)
+    read_simulation_by_address(40001)
+    # write_simulation(10)
     # read_simulation(10)
