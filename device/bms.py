@@ -18,10 +18,12 @@ class Cluster:
     temperature_address = 0
     soc_address = 0
 
+    # 获取簇总电压
     def getVoltage(self):
         voltage = 0
         return int(self.PackList[0].voltage)
 
+    # 获取簇总电流
     def getCurrent(self):
         current = 0
         for pack in self.PackList:
@@ -44,37 +46,43 @@ class Cluster:
         soc = soc / len(self.PackList)
         return int(soc)
 
+    # 获取簇的单体最大电压
     def getMaxVoltage(self):
-        # 每个模组的最大电压的最大值
-        return max(self.PackList, key=lambda x: x.getMaxVoltage()).getMaxVoltage()
+        return int(max(self.PackList, key=lambda x: x.getMaxVoltage()).getMaxVoltage())
 
+    # 获取簇的单体最小电压
     def getMinVoltage(self):
-        # 每个模组的最小电压的最小值
-        return min(self.PackList, key=lambda x: x.getMinVoltage()).getMinVoltage()
+        return int(min(self.PackList, key=lambda x: x.getMinVoltage()).getMinVoltage())
 
+    # 获取簇的单体最大电流
     def getMaxCurrent(self):
         # 每个模组的最大电流的最大值
-        return max(self.PackList, key=lambda x: x.getMaxCurrent()).getMaxCurrent()
+        return int(max(self.PackList, key=lambda x: x.getMaxCurrent()).getMaxCurrent())
 
+    # 获取簇的单体最小电流
     def getMinCurrent(self):
         # 每个模组的最小电流的最小值
-        return min(self.PackList, key=lambda x: x.getMinCurrent()).getMinCurrent()
+        return int(min(self.PackList, key=lambda x: x.getMinCurrent()).getMinCurrent())
 
+    # 获取簇的单体最大温度
     def getMaxTemperature(self):
         # 每个模组的最大温度的最大值
-        return max(self.PackList, key=lambda x: x.getMaxTemperature()).getMaxTemperature()
+        return int(max(self.PackList, key=lambda x: x.getMaxTemperature()).getMaxTemperature())
 
+    # 获取簇的单体最小温度
     def getMinTemperature(self):
         # 每个模组的最小温度的最小值
-        return min(self.PackList, key=lambda x: x.getMinTemperature()).getMinTemperature()
+        return int(min(self.PackList, key=lambda x: x.getMinTemperature()).getMinTemperature())
 
+    # 获取簇的单体最大soc
     def getMaxSoc(self):
         # 每个模组的最大soc的最大值
-        return max(self.PackList, key=lambda x: x.getMaxSoc()).getMaxSoc()
+        return int(max(self.PackList, key=lambda x: x.getMaxSoc()).getMaxSoc())
 
+    # 获取簇的单体最小soc
     def getMinSoc(self):
         # 每个模组的最小soc的最小值
-        return min(self.PackList, key=lambda x: x.getMinSoc()).getMinSoc()
+        return int(min(self.PackList, key=lambda x: x.getMinSoc()).getMinSoc())
 
     def setValue(self):
         self.voltage = self.getVoltage()
@@ -86,10 +94,14 @@ class Cluster:
         self.cluster_id = cluster_id
 
     def setValAddress(self):
-        self.vol_address = 30000 + 750 + self.cluster_id + 1
-        self.current_address = 31000 + 750 + self.cluster_id + 1
-        self.temperature_address = 32000 + 750 + self.cluster_id + 1
-        self.soc_address = 33000 + 750 + self.cluster_id + 1
+        self.vol_address = 30000 + (2 * self.cluster_id + 2) * 1000 + 1000 + 1
+        self.current_address = 30000 + (2 * self.cluster_id + 2) * 1000 + 1000 + 2
+        self.temperature_address = 30000 + (2 * self.cluster_id + 2) * 1000 + 1000 + 3
+        self.soc_address = 30000 + (2 * self.cluster_id + 2) * 1000 + 1000 + 4
+        # self.vol_address = 30000 + 750 + self.cluster_id + 1
+        # self.current_address = 31000 + 750 + self.cluster_id + 1
+        # self.temperature_address = 32000 + 750 + self.cluster_id + 1
+        # self.soc_address = 33000 + 750 + self.cluster_id + 1
 
 
 @dataclass
@@ -158,28 +170,28 @@ class Pack:
         return int(soc)
 
     def getMaxVoltage(self):
-        return max(self.CellList, key=lambda x: x.voltage).voltage
+        return int(max(self.CellList, key=lambda x: x.voltage).voltage)
 
     def getMinVoltage(self):
-        return min(self.CellList, key=lambda x: x.voltage).voltage
+        return int(min(self.CellList, key=lambda x: x.voltage).voltage)
 
     def getMaxCurrent(self):
-        return max(self.CellList, key=lambda x: x.current).current
+        return int(max(self.CellList, key=lambda x: x.current).current)
 
     def getMinCurrent(self):
-        return min(self.CellList, key=lambda x: x.current).current
+        return int(min(self.CellList, key=lambda x: x.current).current)
 
     def getMaxTemperature(self):
-        return max(self.CellList, key=lambda x: x.temperature).temperature
+        return int(max(self.CellList, key=lambda x: x.temperature).temperature)
 
     def getMinTemperature(self):
-        return min(self.CellList, key=lambda x: x.temperature).temperature
+        return int(min(self.CellList, key=lambda x: x.temperature).temperature)
 
     def getMaxSoc(self):
-        return max(self.CellList, key=lambda x: x.soc).soc
+        return int(max(self.CellList, key=lambda x: x.soc).soc)
 
     def getMinSoc(self):
-        return min(self.CellList, key=lambda x: x.soc).soc
+        return int(min(self.CellList, key=lambda x: x.soc).soc)
 
     def setValue(self):
         self.voltage = self.getVoltage()
@@ -192,10 +204,14 @@ class Pack:
         self.pack_id = pack_id
 
     def setValAddress(self):
-        self.vol_address = 30000 + 720 + self.cluster_id * 10 + self.pack_id + 1
-        self.current_address = 31000 + 720 + self.cluster_id * 10 + self.pack_id + 1
-        self.temperature_address = 32000 + 720 + self.cluster_id * 10 + self.pack_id + 1
-        self.soc_address = 33000 + 720 + self.cluster_id * 10 + self.pack_id + 1
+        self.vol_address = 30000 + (2 * self.cluster_id + 2) * 1000 + 960 + self.pack_id + 1
+        self.current_address = 30000 + (2 * self.cluster_id + 2) * 1000 + 970 + self.pack_id + 1
+        self.temperature_address = 30000 + (2 * self.cluster_id + 2) * 1000 + 980 + self.pack_id + 1
+        self.soc_address = 30000 + (2 * self.cluster_id + 2) * 1000 + 990 + self.pack_id + 1
+        # self.vol_address = 30000 + 720 + self.cluster_id * 10 + self.pack_id + 1
+        # self.current_address = 31000 + 720 + self.cluster_id * 10 + self.pack_id + 1
+        # self.temperature_address = 32000 + 720 + self.cluster_id * 10 + self.pack_id + 1
+        # self.soc_address = 33000 + 720 + self.cluster_id * 10 + self.pack_id + 1
 
 
 @dataclass
@@ -229,7 +245,11 @@ class Cell:
         self.cell_id = cell_id
 
     def setValAddress(self):
-        self.vol_address = 30000 + self.cluster_id * 240 + self.pack_id * 24 + self.cell_id + 1
-        self.current_address = 31000 + self.cluster_id * 240 + self.pack_id * 24 + self.cell_id + 1
-        self.temperature_address = 32000 + self.cluster_id * 240 + self.pack_id * 24 + self.cell_id + 1
-        self.soc_address = 33000 + self.cluster_id * 240 + self.pack_id * 24 + self.cell_id + 1
+        self.vol_address = 30000 + (2 * self.cluster_id + 2) * 1000 + self.pack_id * 24 + self.cell_id + 1
+        self.current_address = 30000 + (2 * self.cluster_id + 2) * 1000 + 240 + self.pack_id * 24 + self.cell_id + 1
+        self.temperature_address = 30000 + (2 * self.cluster_id + 2) * 1000 + 480 + self.pack_id * 24 + self.cell_id + 1
+        self.soc_address = 30000 + (2 * self.cluster_id + 2) * 1000 + 720 + self.pack_id * 24 + self.cell_id + 1
+        # self.vol_address = 30000 + self.cluster_id * 240 + self.pack_id * 24 + self.cell_id + 1
+        # self.current_address = 31000 + self.cluster_id * 240 + self.pack_id * 24 + self.cell_id + 1
+        # self.temperature_address = 32000 + self.cluster_id * 240 + self.pack_id * 24 + self.cell_id + 1
+        # self.soc_address = 33000 + self.cluster_id * 240 + self.pack_id * 24 + self.cell_id + 1

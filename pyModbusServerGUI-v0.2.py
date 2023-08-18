@@ -4,16 +4,17 @@ import time
 from device.modbus_server import ModbusPcsServerGUI, ModbusBmsServerGUI
 import dearpygui.dearpygui as dpg
 import random
+import csv
 
 from pyModbusTCP.logger import log
 
-NUMCOILS = 3000  # number of coils we allow user to configure in the GUI, if this is too large then the display is unusable
+NUMCOILS = 4000  # number of coils we allow user to configure in the GUI, if this is too large then the display is unusable
 COILSPERROW = 40  # how many coil tickboxes to display in each table row
 MAXCOILROWS = int(NUMCOILS / COILSPERROW)
 MAXCOILS = 9999  # maximum size of coil list that can be imported
 coilList = [0] * MAXCOILS
 
-NUMREGISTERS = 3000  # number of registers that can be entered in the GUI
+NUMREGISTERS = 4000  # number of registers that can be entered in the GUI
 REGISTERSPERROW = 20  # how many to display on one row of the table
 MAXREGISTERROWS = int(NUMREGISTERS / REGISTERSPERROW)
 MAXREGISTERS = 9999
@@ -264,6 +265,8 @@ def registerTextChanged(sender, app_data, user_data):
 
 # 自动刷新输入寄存器
 def autoRefreshRegisters(sender, app_data, user_data):
+    startModbusServer("uNF", "uNF", "uNF")
+
     def refeshRegistersThread(sender, app_data, user_data):
         while True:
             setRandomCellValues(sender, app_data, user_data)
@@ -349,6 +352,11 @@ def setCellValues(sender, app_data, user_data):
         dpg.add_input_text(label="电芯电压", tag="cell_voltage", width=100)
         dpg.move_item("cell_voltage", parent=cell_vol_group)
 
+        # 电芯电流
+        cell_current_group = dpg.add_group(horizontal=True)
+        dpg.add_input_text(label="电芯电流", tag="cell_current", width=100)
+        dpg.move_item("cell_current", parent=cell_current_group)
+
         # 电芯温度
         cell_temp_group = dpg.add_group(horizontal=True)
         dpg.add_input_text(label="电芯温度", tag="cell_temperature", width=100)
@@ -368,9 +376,10 @@ def setCellValues(sender, app_data, user_data):
             log.debug("vol_address: " + str(cell.vol_address) + " temperature_address: " + str(
                 cell.temperature_address) + " soc_address: " + str(cell.soc_address))
             cell_voltage = str(dpg.get_value("cell_voltage"))
+            cell_current = str(dpg.get_value("cell_current"))
             cell_temperature = str(dpg.get_value("cell_temperature"))
             cell_soc = str(dpg.get_value("cell_soc"))
-            cell.setValue(cell_voltage, cell_temperature, cell_soc)
+            cell.setValue(cell_voltage, cell_current, cell_temperature, cell_soc)
             modbusServer.setSingleCellValues(cell)
             dpg.delete_item("cell")
 
@@ -432,6 +441,26 @@ def setRandomCellValues(sender, app_data, user_data):
     modbusServer.setRandomCellValues()
 
 
+# 导出CSV文件
+def export_csv(sender, app_data, user_data):
+    dataList = []
+    cellDataPointHeader = ["簇id", "模组id", "电芯id", "测点类型", "地址", "16进制地址", "测点值", "乘法系数"]
+    dataList.append(cellDataPointHeader)
+    # 导出电芯数据
+    # modbusServer.exportCellDataPointByCell(dataList)
+    modbusServer.exportCellDataPointByAddress(dataList)
+    systemDataPointHeader = ["地址", "16进制地址", "测点名", "测点值", "乘法系数"]
+    dataList.append(systemDataPointHeader)
+    # 导出系统数据
+    modbusServer.exportSystemDataPoint(dataList)
+
+    # 打开CSV文件并写入数据
+    with open("point_csv/data.csv", "w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile)
+        for row in dataList:
+            writer.writerow(row)
+
+
 # 注册字体，自选字体
 with dpg.font_registry():
     with dpg.font("resources/Adobe Fangsong Std.otf", 25) as font:  # 增加中文编码范围，防止问号
@@ -472,7 +501,7 @@ with dpg.window(tag="Primary Window", width=1000):
     deviceTypeGroup = dpg.add_group(horizontal=True)
     dpg.add_text("设备类型:", tag="deviceTypeText", parent=deviceTypeGroup)
     # 设置MODBUS的下拉框选项
-    modbus_combo = dpg.add_combo(("Modbus PCS", "Modbus BMS"), default_value="Modbus PCS", tag="modbusType", width=250,
+    modbus_combo = dpg.add_combo(("Modbus PCS", "Modbus BMS"), default_value="Modbus BMS", tag="modbusType", width=250,
                                  indent=300, parent=deviceTypeGroup)
     on_modbus_type_selected(modbus_combo, None)
     dpg.set_item_callback(modbus_combo, on_modbus_type_selected)
@@ -498,9 +527,12 @@ with dpg.window(tag="Primary Window", width=1000):
                    tag="setCellValuesButton")
     dpg.add_button(label="随机设置所有电芯值", callback=setRandomCellValues,
                    tag="randomiseAllCellButton")
+    # 导出CSV文件
+    dpg.add_button(label="导出CSV文件", callback=export_csv, tag="exportCSVButton")
     setValueGroup = dpg.add_group(horizontal=True)
     dpg.move_item("setCellValuesButton", parent=setValueGroup)
     dpg.move_item("randomiseAllCellButton", parent=setValueGroup)
+    dpg.move_item("exportCSVButton", parent=setValueGroup)
 
     # 1-9999 - discrete output coils R/W - binary
     # At the moment it is R/O, the backend server library may let clients write values but they won't be reflected in the GUI
@@ -546,21 +578,19 @@ with dpg.window(tag="Primary Window", width=1000):
     # 30001 - 39999 - 输入寄存器 - R/O - 16 bit int
     with dpg.collapsing_header(
             label="模拟输入寄存器值GUI，如果客户端更改了值，需手动点击刷新按钮才能更新GUI"):
+        dpg.add_button(label="随机生成输入寄存器值", callback=randomiseRegisters,
+                       tag="randomiseRegistersButton")
+        dpg.add_button(label="清空输入寄存器值", callback=clearRegisters, tag="clearRegistersButton")
+        dpg.add_button(label="刷新", callback=refreshRegisters, tag="refreshRegistersButton")
+        dpg.add_button(label="自动刷新", callback=autoRefreshRegisters, tag="autoRefreshRegistersButton")
+        dpg.add_button(label="停止刷新", callback=stopRefreshRegisters, tag="stopRefreshRegistersButton")
+        registerValueGroup = dpg.add_group(horizontal=True)
+        dpg.move_item("randomiseRegistersButton", parent=registerValueGroup)
+        dpg.move_item("clearRegistersButton", parent=registerValueGroup)
+        dpg.move_item("refreshRegistersButton", parent=registerValueGroup)
+        dpg.move_item("autoRefreshRegistersButton", parent=registerValueGroup)
+        dpg.move_item("stopRefreshRegistersButton", parent=registerValueGroup)
         with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _register_child_window:
-
-            dpg.add_button(label="随机生成输入寄存器值", callback=randomiseRegisters,
-                           tag="randomiseRegistersButton")
-            dpg.add_button(label="清空输入寄存器值", callback=clearRegisters, tag="clearRegistersButton")
-            dpg.add_button(label="刷新", callback=refreshRegisters, tag="refreshRegistersButton")
-            dpg.add_button(label="自动刷新", callback=autoRefreshRegisters, tag="autoRefreshRegistersButton")
-            dpg.add_button(label="停止刷新", callback=stopRefreshRegisters, tag="stopRefreshRegistersButton")
-            registerValueGroup = dpg.add_group(horizontal=True)
-            dpg.move_item("randomiseRegistersButton", parent=registerValueGroup)
-            dpg.move_item("clearRegistersButton", parent=registerValueGroup)
-            dpg.move_item("refreshRegistersButton", parent=registerValueGroup)
-            dpg.move_item("autoRefreshRegistersButton", parent=registerValueGroup)
-            dpg.move_item("stopRefreshRegistersButton", parent=registerValueGroup)
-
             # grid allowing entry of values 1-MAXREGISTERS
 
             with dpg.table(tag="registersTable", header_row=True, row_background=False,
