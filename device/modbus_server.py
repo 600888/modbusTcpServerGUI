@@ -2,6 +2,7 @@ import random
 
 from pyModbusTCP.server import ModbusServer, ModbusServerDataBank, log
 from device.bms import Cluster, Pack, Cell
+from device.pcs import Pcs
 import time
 
 
@@ -128,7 +129,29 @@ class ModbusServerGUI:
 
 
 class ModbusPcsServerGUI(ModbusServerGUI):
-    pass
+    pcs = Pcs()
+
+    # 设置PCS模拟数据
+    def setSimulatePcsValues(self):
+        self.pcs.setRandomData()
+        self.setAllRegisterValues()
+
+    def setAllRegisterValues(self):
+        self.setValueByAddress(30001, self.pcs.totalAcPower, "input")
+        self.setValueByAddress(30002, self.pcs.totalAcReactivePower, "input")
+        self.setValueByAddress(30003, self.pcs.totalApparentPower, "input")
+        self.setValueByAddress(30004, self.pcs.totalPowerFactor, "input")
+        self.setValueByAddress(30005, self.pcs.todayAcChargeEnergy, "input")
+        self.setValueByAddress(30006, self.pcs.todayAcDischargeEnergy, "input")
+        self.setValueByAddress(30007, self.pcs.pcsTemperature, "input")
+        self.setValueByAddress(30008, self.pcs.environmentTemperature, "input")
+        self.setValueByAddress(30009, self.pcs.phaseAVoltage, "input")
+        self.setValueByAddress(30010, self.pcs.phaseBVoltage, "input")
+        self.setValueByAddress(30011, self.pcs.phaseCVoltage, "input")
+        self.setValueByAddress(30012, self.pcs.phaseACurrent, "input")
+        self.setValueByAddress(30013, self.pcs.phaseBCurrent, "input")
+        self.setValueByAddress(30014, self.pcs.phaseCCurrent, "input")
+        self.setValueByAddress(30015, self.pcs.acFrequency, "input")
 
 
 class ModbusBmsServerGUI(ModbusServerGUI):
