@@ -12,6 +12,7 @@ class ModbusServerGUI:
     port = 10502
     serverObj = False  # server object from pyModbusTCP library
     dataBank = False
+    type = None
 
     def __init__(self):
         # databank object is used by pyModbusTCP to store the response values
@@ -24,13 +25,13 @@ class ModbusServerGUI:
         self.serverObj = ModbusServer(host=self.address, port=self.port, no_block=True, data_bank=self.dataBank)
         self.serverObj.start()
 
-        # Wait 2 seconds for everything to settle and then check our status
-        time.sleep(2)
+        # Wait 1 seconds for everything to settle and then check our status
+        time.sleep(1)
         return self.checkRunning()
 
     def stopServer(self):
         self.serverObj.stop()
-        time.sleep(2)  # wait 2 seconds for it to settle
+        time.sleep(1)  # wait 1 seconds for it to settle
         if not self.checkRunning():
             self.serverObj = False
             return True
@@ -115,6 +116,12 @@ class ModbusServerGUI:
         else:
             self.serverObj.data_hdl.write_i_regs(int(str(address), 10), val)
 
+    def setType(self, type):
+        self.type = type
+
+    def getType(self):
+        return self.type
+
     @staticmethod
     def debugLog(data=None):
         log.info(data)
@@ -129,6 +136,7 @@ class ModbusServerGUI:
 
 
 class ModbusPcsServerGUI(ModbusServerGUI):
+    config_list = []
     pcs = Pcs()
 
     # 设置PCS模拟数据
@@ -137,9 +145,11 @@ class ModbusPcsServerGUI(ModbusServerGUI):
         self.setAllRegisterValues()
 
     def setAllRegisterValues(self):
+        # 读数据
         self.setValueByAddress(30001, self.pcs.totalAcPower, "input")
         self.setValueByAddress(30002, self.pcs.totalAcReactivePower, "input")
         self.setValueByAddress(30003, self.pcs.totalApparentPower, "input")
+        log.debug("totalPowerFactor: %d" % self.pcs.totalPowerFactor)
         self.setValueByAddress(30004, self.pcs.totalPowerFactor, "input")
         self.setValueByAddress(30005, self.pcs.todayAcChargeEnergy, "input")
         self.setValueByAddress(30006, self.pcs.todayAcDischargeEnergy, "input")
@@ -152,6 +162,42 @@ class ModbusPcsServerGUI(ModbusServerGUI):
         self.setValueByAddress(30013, self.pcs.phaseBCurrent, "input")
         self.setValueByAddress(30014, self.pcs.phaseCCurrent, "input")
         self.setValueByAddress(30015, self.pcs.acFrequency, "input")
+
+        # 写数据
+        self.setValueByAddress(40001, self.pcs.isStart, "output")
+        self.setValueByAddress(40002, self.pcs.isCharge, "output")
+        self.setValueByAddress(40003, self.pcs.isManual, "output")
+        self.setValueByAddress(40004, self.pcs.isPlan, "output")
+        self.setValueByAddress(40005, self.pcs.runMode, "output")
+
+    def getDataPoint(self, address, hex_address, name, value, unit):
+        point = [address, hex_address, name, value, unit]
+        return point
+
+    def exportDataPoint(self, dataList):
+        # 读数据
+        dataList.append(self.getDataPoint(30001, hex(30001), "总交流有功功率", self.pcs.totalAcPower, "0.1"))
+        dataList.append(self.getDataPoint(30002, hex(30002), "总交流无功功率", self.pcs.totalAcReactivePower, "0.1"))
+        dataList.append(self.getDataPoint(30003, hex(30003), "总交流视在功率", self.pcs.totalApparentPower, "0.1"))
+        dataList.append(self.getDataPoint(30004, hex(30004), "总交流功率因数", self.pcs.totalPowerFactor, "0.01"))
+        dataList.append(self.getDataPoint(30005, hex(30005), "当天交流充电量", self.pcs.todayAcChargeEnergy, "0.1"))
+        dataList.append(self.getDataPoint(30006, hex(30006), "当天交流放电量", self.pcs.todayAcDischargeEnergy, "0.1"))
+        dataList.append(self.getDataPoint(30007, hex(30007), "PCS模块温度", self.pcs.pcsTemperature, "0.1"))
+        dataList.append(self.getDataPoint(30008, hex(30008), "PCS环境温度", self.pcs.environmentTemperature, "0.1"))
+        dataList.append(self.getDataPoint(30009, hex(30009), "A相电压", self.pcs.phaseAVoltage, "0.1"))
+        dataList.append(self.getDataPoint(30010, hex(30010), "B相电压", self.pcs.phaseBVoltage, "0.1"))
+        dataList.append(self.getDataPoint(30011, hex(30011), "C相电压", self.pcs.phaseCVoltage, "0.1"))
+        dataList.append(self.getDataPoint(30012, hex(30012), "A相电流", self.pcs.phaseACurrent, "0.1"))
+        dataList.append(self.getDataPoint(30013, hex(30013), "B相电流", self.pcs.phaseBCurrent, "0.1"))
+        dataList.append(self.getDataPoint(30014, hex(30014), "C相电流", self.pcs.phaseCCurrent, "0.1"))
+        dataList.append(self.getDataPoint(30015, hex(30015), "交流频率", self.pcs.acFrequency, "0.1"))
+
+        # 写数据
+        dataList.append(self.getDataPoint(40001, hex(40001), "PCS开关机设置", self.pcs.isStart, "1"))
+        dataList.append(self.getDataPoint(40002, hex(40002), "PCS充放电设置", self.pcs.isCharge, "1"))
+        dataList.append(self.getDataPoint(40003, hex(40003), "手动并离网模式", self.pcs.isManual, "1"))
+        dataList.append(self.getDataPoint(40004, hex(40004), "是否启用计划曲线运行", self.pcs.isPlan, "1"))
+        dataList.append(self.getDataPoint(40005, hex(40005), "运行模式", self.pcs.runMode, "1"))
 
 
 class ModbusBmsServerGUI(ModbusServerGUI):
@@ -378,8 +424,8 @@ class ModbusBmsServerGUI(ModbusServerGUI):
 
     @staticmethod
     def getSystemDataPoint(address, hex_address, name, value, unit):
-        pointList = [address, hex_address, name, value, unit]
-        return pointList
+        point = [address, hex_address, name, value, unit]
+        return point
 
     @staticmethod
     def getCellDataPoint(cluster_id, pack_id, cell_id, value_type, address, hex_address, value, unit):

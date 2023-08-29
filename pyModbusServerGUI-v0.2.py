@@ -25,6 +25,9 @@ dpg.create_context()
 
 modbusServer = None
 
+thread = None
+stop_event = threading.Event()
+
 
 # print any debug info text into console
 def debugLog(text):
@@ -66,6 +69,7 @@ def startModbusServer(sender, app_data, user_data):
 
 def stopModbusServer(sender, app_data, user_data):
     setItemEnabled()
+    stopAutoSimulation("uNF", "uNF", "uNF")
     if modbusServer.checkRunning():  # if it's not running then don't do anything
         if modbusServer.stopServer():  # try to stop the server
             dpg.configure_item("serverStatus", default_value="停止")
@@ -128,7 +132,7 @@ def randomiseCoils(sender, app_data, user_data):
 
         if random.randint(0, 100) > 50:
             dpg.highlight_table_cell(coil_table_id, row, col, [0, 230, 0, 100])
-            coilList[i] = 1;
+            coilList[i] = 1
             # print("coils" + str(i))
             # no idea why these sometimes fail, catch the exception and ignore it as it doesn't really impact much
             try:
@@ -264,27 +268,49 @@ def registerTextChanged(sender, app_data, user_data):
 
 
 # 自动刷新输入寄存器
-def autoRefreshRegisters(sender, app_data, user_data):
+def autoSimulation(sender, app_data, user_data):
     startModbusServer("uNF", "uNF", "uNF")
+    global stop_event
+    stop_event = threading.Event()
 
-    def refeshRegistersThread(sender, app_data, user_data):
-        while True:
+    def bmsSimulationThread(sender, app_data, user_data):
+        while not stop_event.is_set():
             setRandomCellValues(sender, app_data, user_data)
             refreshRegisters(sender, app_data, user_data)
             time.sleep(1)
+        print("bms thread stopped")
 
-    debugLog(f"autoRefreshRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
+    def pcsSimulationThread(sender, app_data, user_data):
+        count = 0
+        while not stop_event.is_set():
+            if modbusServer.pcs.isStart == 1:
+                setRandomPcsValues(sender, app_data, user_data)
+            refreshRegisters(sender, app_data, user_data)
+            time.sleep(1)
+            count += 1
+            # 设置pcs每运行五分钟关机五秒
+            if count % 300 == 0:
+                modbusServer.pcs.isStart = 0
+            elif count % 305 == 0:
+                modbusServer.pcs.isStart = 1
+        print("pcs thread stopped")
+
     # 开启一个python线程每秒刷新一次
     global thread
-    thread = threading.Thread(target=refeshRegistersThread, args=(sender, app_data, user_data))
+    if modbusServer.getType() == "Modbus PCS":
+        thread = threading.Thread(target=pcsSimulationThread, args=(sender, app_data, user_data))
+    else:
+        thread = threading.Thread(target=bmsSimulationThread, args=(sender, app_data, user_data))
     thread.start()
 
 
 # 停止自动刷新输入寄存器
-def stopRefreshRegisters(sender, app_data, user_data):
-    debugLog(f"stopRefreshRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
-    global thread
-    thread.join()
+def stopAutoSimulation(sender, app_data, user_data):
+    log.debug("stopRefreshRegisters")
+    global thread, stop_event
+    if thread is not None and thread.is_alive():
+        stop_event.set()
+        thread.join()
 
 
 def randomiseOutputRegisters(sender, app_data, user_data):
@@ -426,11 +452,13 @@ def on_modbus_type_selected(sender, data):
     modbus_type = dpg.get_value(sender)
     if modbus_type == "Modbus PCS":
         modbusServer = ModbusPcsServerGUI()
+        modbusServer.setType("Modbus PCS")
         log.info("Modbus PCS")
         # 执行 Modbus PCS 相关逻辑
         pass
     else:
         modbusServer = ModbusBmsServerGUI()
+        modbusServer.setType("Modbus BMS")
         log.info("Modbus BMS")
         # 执行 Modbus BMS 相关逻辑
         pass
@@ -441,24 +469,193 @@ def setRandomCellValues(sender, app_data, user_data):
     modbusServer.setRandomCellValues()
 
 
+import tkinter as tk
+from tkinter import filedialog
+
+
 # 导出CSV文件
 def export_csv(sender, app_data, user_data):
     dataList = []
-    cellDataPointHeader = ["簇id", "模组id", "电芯id", "测点类型", "地址", "16进制地址", "测点值", "乘法系数"]
-    dataList.append(cellDataPointHeader)
-    # 导出电芯数据
-    # modbusServer.exportCellDataPointByCell(dataList)
-    modbusServer.exportCellDataPointByAddress(dataList)
-    systemDataPointHeader = ["地址", "16进制地址", "测点名", "测点值", "乘法系数"]
-    dataList.append(systemDataPointHeader)
-    # 导出系统数据
-    modbusServer.exportSystemDataPoint(dataList)
+    global modbusServer
+    if modbusServer.getType() == "Modbus PCS":
+        pcsDataPointHeader = ["地址", "16进制地址", "测点名", "测点值", "乘法系数"]
+        dataList.append(pcsDataPointHeader)
+        modbusServer.exportDataPoint(dataList)
+    else:
+        cellDataPointHeader = ["簇id", "模组id", "电芯id", "测点类型", "地址", "16进制地址", "测点值", "乘法系数"]
+        dataList.append(cellDataPointHeader)
+        # 导出电芯数据
+        # modbusServer.exportCellDataPointByCell(dataList)
+        modbusServer.exportCellDataPointByAddress(dataList)
+        systemDataPointHeader = ["地址", "16进制地址", "测点名", "测点值", "乘法系数"]
+        dataList.append(systemDataPointHeader)
+        # 导出系统数据
+        modbusServer.exportSystemDataPoint(dataList)
 
-    # 打开CSV文件并写入数据
-    with open("point_csv/data.csv", "w", newline="", encoding="utf-8") as csvfile:
-        writer = csv.writer(csvfile)
-        for row in dataList:
-            writer.writerow(row)
+    # 创建一个 Tkinter 窗口
+    root = tk.Tk()
+
+    # 隐藏窗口
+    root.withdraw()
+    file_path = tk.filedialog.asksaveasfilename(title=u'保存文件', defaultextension='.csv',
+                                                filetypes=[("csv格式", ".csv")])
+    log.debug("file_path: " + file_path)
+    # 如果用户选择了文件名，则保存文件
+    if file_path:
+        open(file_path, 'w').close()
+        # 打开CSV文件并写入数据
+        with open(file_path, 'w', newline="", encoding="utf-8") as csvfile:
+            writer = csv.writer(csvfile)
+            for row in dataList:
+                writer.writerow(row)
+        log.info("导出CSV文件成功")
+
+
+########################################################################################################################
+# PCS 配置相关
+def setRandomPcsValues(sender, app_data, user_data):
+    global modbusServer
+    if modbusServer is None or not modbusServer.checkRunning() or modbusServer.getType() != "Modbus PCS":
+        # 弹框提示
+        with dpg.window(label="错误", tag="error", autosize=True, pos=[500, 400]):
+            dpg.add_text("Modbus PCS 服务未开启")
+            dpg.add_button(label="OK", callback=lambda: dpg.delete_item("error"))
+        log.info("Modbus PCS 服务未开启")
+        return
+    modbusServer.setSimulatePcsValues()
+
+
+def pop_update_warning_window():
+    with dpg.window(label="警告", modal=True, show=False, no_close=True, tag="warningWindow", pos=[500, 300]):
+        dpg.add_text("只能选择一项修改！")
+        log.warning("只能选择一项修改！")
+        dpg.add_button(label="确定", width=100,
+                       callback=lambda: dpg.delete_item("warningWindow"))
+        dpg.configure_item("warningWindow", show=True)
+
+
+pcs_check_box_list = []
+pcs_config_list = []
+
+
+def get_pcs_id_list():
+    pcs_id_list = []
+    for i in range(0, len(pcs_check_box_list)):
+        if dpg.get_value(pcs_check_box_list[i]):
+            pcs_id_list.append(i)
+    return pcs_id_list
+
+def clearConfigWindow():
+    if dpg.does_item_exist("pcsConfigTable"):
+        dpg.delete_item("pcsConfigTable")
+
+def initPcsConfigTable():
+    # addConfig("1", "1", "1", "1", "1", "有功功率", "1")
+    clearConfigWindow()
+    with dpg.child_window(autosize_x=True, horizontal_scrollbar=True, tag="pcsConfigWindow"):
+        with dpg.table(tag="pcsConfigTable", header_row=True, row_background=False,
+                       borders_innerH=True, borders_outerH=True, policy=dpg.mvTable_SizingFixedFit,
+                       borders_innerV=True, scrollX=True, scrollY=True, freeze_rows=1,
+                       borders_outerV=True, delay_search=True, no_host_extendX=True, resizable=True,
+                       width=1800) as pcsConfig_Table:
+            dpg.add_table_column(label="id")
+            dpg.add_table_column(label="时间偏移量")
+            dpg.add_table_column(label="PCS服务状态")
+            dpg.add_table_column(label="运行模式")
+            dpg.add_table_column(label="电压")
+            dpg.add_table_column(label="电流")
+            dpg.add_table_column(label="功率")
+            for i in range(0, len(pcs_config_list)):
+                with dpg.table_row():
+                    checkbox_id = dpg.add_checkbox(label=str(i), tag="config_check_box" + str(i))
+                    pcs_check_box_list.append(checkbox_id)
+                    dpg.highlight_table_cell(pcsConfig_Table, i, 0, (31, 31, 31))
+                    dpg.add_text(tag="pcs_config" + str(i * 20 + 1), default_value=pcs_config_list[i][1])
+                    dpg.add_text(tag="pcs_config" + str(i * 20 + 2), default_value=pcs_config_list[i][2])
+                    dpg.add_text(tag="pcs_config" + str(i * 20 + 3), default_value=pcs_config_list[i][3])
+                    dpg.add_text(tag="pcs_config" + str(i * 20 + 4), default_value=pcs_config_list[i][4])
+                    dpg.add_text(tag="pcs_config" + str(i * 20 + 5), default_value=pcs_config_list[i][5])
+                    dpg.add_text(tag="pcs_config" + str(i * 20 + 6), default_value=pcs_config_list[i][6])
+            dpg.configure_item(pcsConfig_Table, height=500)
+
+
+def addConfig(time_offset, server_status, run_mode, voltage, current, power_type, power):
+    if power_type == "有功功率":
+        power_text = "有功功率：" + str(power) + "kw"
+    else:
+        power_text = "无功功率：" + str(power) + "kw"
+
+    pcs_config = [len(pcs_config_list), time_offset, server_status, run_mode, voltage, current, power_text]
+    pcs_config_list.append(pcs_config)
+    dpg.delete_item("addConfigWindow")
+    dpg.delete_item("pcsConfigWindow")
+    initPcsConfigTable()
+    log.info("pcs配置添加成功！")
+
+
+def setPcsConfigWindow(pcs_label, window, method):
+    pcs_id_list = get_pcs_id_list()
+    if method == "update":
+        if len(pcs_id_list) != 1:
+            # 弹出警告框提示
+            pop_update_warning_window()
+            return
+
+    with dpg.window(label=pcs_label, show=False, no_collapse=True, tag=window, pos=[300, 200],
+                    no_close=True):
+        start_indent = 150
+        input_width = 300
+        text_indent = 480
+        second_input_indent = 650
+        with dpg.group(horizontal=True):
+            dpg.add_text("时间偏移量：")
+            time_offset = dpg.add_input_text(tag="time_offset", indent=start_indent, width=input_width,
+                                             default_value="5")
+            dpg.add_text("PCS服务状态：", indent=text_indent)
+            server_status = dpg.add_checkbox(tag="server_status", indent=second_input_indent)
+        with dpg.group(horizontal=True):
+            dpg.add_text("运行模式：")
+            run_mode = dpg.add_input_text(tag="run_ode", indent=start_indent, width=input_width,hint="0：恒功率；1：恒流")
+            dpg.add_text("电压：", indent=text_indent)
+            voltage = dpg.add_input_text(tag="voltage", indent=second_input_indent, width=input_width)
+        with dpg.group(horizontal=True):
+            dpg.add_text("电流：")
+            current = dpg.add_input_text(tag="current", indent=start_indent, width=input_width)
+            dpg.add_text("功率：", indent=text_indent)
+            power_combo = dpg.add_combo(["有功功率", "无功功率"], default_value="有功功率", tag="power_type",
+                                        indent=second_input_indent, width=input_width)
+            power_text = dpg.add_input_text(tag="power", width=input_width)
+
+        if method == "update":
+            dpg.set_value(time_offset, pcs_config_list[pcs_id_list[-1]][1])
+            dpg.set_value(server_status, pcs_config_list[pcs_id_list[-1]][2])
+            dpg.set_value(run_mode, pcs_config_list[pcs_id_list[-1]][3])
+            dpg.set_value(voltage, pcs_config_list[pcs_id_list[-1]][4])
+            dpg.set_value(current, pcs_config_list[pcs_id_list[-1]][5])
+            dpg.set_value(power_combo, pcs_config_list[pcs_id_list[-1]][6])
+
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="确定", width=100,
+                           callback=lambda: addConfig(dpg.get_value("time_offset"),
+                                                      bool(dpg.get_value("server_status")),
+                                                      dpg.get_value("run_mode"), dpg.get_value("voltage"),
+                                                      dpg.get_value("current"), dpg.get_value("power_type"),
+                                                      dpg.get_value("power")))
+            dpg.add_button(label="取消", width=100,
+                           callback=lambda: dpg.delete_item(window))
+        dpg.configure_item(window, show=True)
+
+
+def addConfigWindow():
+    setPcsConfigWindow("添加配置", "addConfigWindow", "add")
+
+
+def updateConfigWindow():
+    setPcsConfigWindow("修改配置", "updateConfigWindow", "update")
+
+
+def deleteConfig():
+    pass
 
 
 # 注册字体，自选字体
@@ -477,7 +674,7 @@ with dpg.theme() as red_bg_theme:
     with dpg.theme_component(dpg.mvAll):
         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (230, 0, 0), category=dpg.mvThemeCat_Core)
 
-with dpg.window(tag="Primary Window", width=1000):
+with dpg.window(tag="Primary Window", width=1500):
     dpg.bind_font(default_font)
     dpg.add_text("Modbus/TCP 服务器地址:", tag="serverText")
 
@@ -523,16 +720,16 @@ with dpg.window(tag="Primary Window", width=1000):
     dpg.move_item("checkServerButton", parent=serverStatusGroup)
 
     # 设置电芯数据
-    dpg.add_button(label="设置单个电芯值", callback=setCellValues,
-                   tag="setCellValuesButton")
-    dpg.add_button(label="随机设置所有电芯值", callback=setRandomCellValues,
-                   tag="randomiseAllCellButton")
-    # 导出CSV文件
-    dpg.add_button(label="导出CSV文件", callback=export_csv, tag="exportCSVButton")
-    setValueGroup = dpg.add_group(horizontal=True)
-    dpg.move_item("setCellValuesButton", parent=setValueGroup)
-    dpg.move_item("randomiseAllCellButton", parent=setValueGroup)
-    dpg.move_item("exportCSVButton", parent=setValueGroup)
+    with dpg.group(horizontal=True):
+        dpg.add_button(label="设置单个电芯值", callback=setCellValues,
+                       tag="setCellValuesButton")
+        dpg.add_button(label="随机设置所有电芯值", callback=setRandomCellValues,
+                       tag="randomiseAllCellButton")
+        dpg.add_button(label="随机设置所有PCS值", callback=setRandomPcsValues,
+                       tag="randomiseAllPcsValuesButton")
+
+        # 导出CSV文件
+        dpg.add_button(label="导出CSV文件", callback=export_csv, tag="exportCSVButton")
 
     # 1-9999 - discrete output coils R/W - binary
     # At the moment it is R/O, the backend server library may let clients write values but they won't be reflected in the GUI
@@ -549,7 +746,7 @@ with dpg.window(tag="Primary Window", width=1000):
 
             with dpg.table(tag="coilsTable", header_row=True, row_background=False,
                            borders_innerH=True, borders_outerH=True, policy=dpg.mvTable_SizingFixedFit,
-                           borders_innerV=True,
+                           borders_innerV=True, scrollX=True, scrollY=True, freeze_rows=1,
                            borders_outerV=True, delay_search=True, no_host_extendX=True, resizable=True,
                            width=1800) as coil_table_id:
                 for i in range(COILSPERROW + 1):
@@ -578,24 +775,19 @@ with dpg.window(tag="Primary Window", width=1000):
     # 30001 - 39999 - 输入寄存器 - R/O - 16 bit int
     with dpg.collapsing_header(
             label="模拟输入寄存器值GUI，如果客户端更改了值，需手动点击刷新按钮才能更新GUI"):
-        dpg.add_button(label="随机生成输入寄存器值", callback=randomiseRegisters,
-                       tag="randomiseRegistersButton")
-        dpg.add_button(label="清空输入寄存器值", callback=clearRegisters, tag="clearRegistersButton")
-        dpg.add_button(label="刷新", callback=refreshRegisters, tag="refreshRegistersButton")
-        dpg.add_button(label="自动刷新", callback=autoRefreshRegisters, tag="autoRefreshRegistersButton")
-        dpg.add_button(label="停止刷新", callback=stopRefreshRegisters, tag="stopRefreshRegistersButton")
-        registerValueGroup = dpg.add_group(horizontal=True)
-        dpg.move_item("randomiseRegistersButton", parent=registerValueGroup)
-        dpg.move_item("clearRegistersButton", parent=registerValueGroup)
-        dpg.move_item("refreshRegistersButton", parent=registerValueGroup)
-        dpg.move_item("autoRefreshRegistersButton", parent=registerValueGroup)
-        dpg.move_item("stopRefreshRegistersButton", parent=registerValueGroup)
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="随机生成输入寄存器值", callback=randomiseRegisters,
+                           tag="randomiseRegistersButton")
+            dpg.add_button(label="清空输入寄存器值", callback=clearRegisters, tag="clearRegistersButton")
+            dpg.add_button(label="刷新", callback=refreshRegisters, tag="refreshRegistersButton")
+            dpg.add_button(label="自动模拟", callback=autoSimulation, tag="autoSimulationButton")
+            dpg.add_button(label="停止模拟", callback=stopAutoSimulation, tag="stopRefreshRegistersButton")
         with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _register_child_window:
             # grid allowing entry of values 1-MAXREGISTERS
 
             with dpg.table(tag="registersTable", header_row=True, row_background=False,
                            borders_innerH=True, borders_outerH=True, policy=dpg.mvTable_SizingFixedFit,
-                           borders_innerV=True,
+                           borders_innerV=True, scrollX=True, scrollY=True, freeze_rows=1,
                            borders_outerV=True, delay_search=True, no_host_extendX=True, resizable=True,
                            width=1800) as register_table_id:
                 for i in range(REGISTERSPERROW + 1):
@@ -619,23 +811,18 @@ with dpg.window(tag="Primary Window", width=1000):
     with dpg.collapsing_header(
             label="模拟输出寄存器值GUI，如果客户端更改了值，需手动点击刷新按钮才能更新GUI"):
         with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _output_register_child_window:
-
-            dpg.add_button(label="随机生成输出寄存器值", callback=randomiseOutputRegisters,
-                           tag="randomiseOutputRegistersButton")
-            dpg.add_button(label="清空输出寄存器值", callback=clearOutputRegisters,
-                           tag="clearOutputRegistersButton")
-            dpg.add_button(label="刷新界面", callback=refreshOutputRegistersTable,
-                           tag="refreshOutputRegistersTableButton")
-            outputRegisterValueGroup = dpg.add_group(horizontal=True)
-            dpg.move_item("randomiseOutputRegistersButton", parent=outputRegisterValueGroup)
-            dpg.move_item("clearOutputRegistersButton", parent=outputRegisterValueGroup)
-            dpg.move_item("refreshOutputRegistersTableButton", parent=outputRegisterValueGroup)
-
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="随机生成输出寄存器值", callback=randomiseOutputRegisters,
+                               tag="randomiseOutputRegistersButton")
+                dpg.add_button(label="清空输出寄存器值", callback=clearOutputRegisters,
+                               tag="clearOutputRegistersButton")
+                dpg.add_button(label="刷新界面", callback=refreshOutputRegistersTable,
+                               tag="refreshOutputRegistersTableButton")
             # grid allowing entry of values 1-MAXREGISTERS
 
             with dpg.table(tag="outputRegistersTable", header_row=True, row_background=False,
                            borders_innerH=True, borders_outerH=True, policy=dpg.mvTable_SizingFixedFit,
-                           borders_innerV=True,
+                           borders_innerV=True, scrollX=True, scrollY=True, freeze_rows=1,
                            borders_outerV=True, delay_search=True, no_host_extendX=True, resizable=True,
                            width=1800) as output_register_table_id:
                 for i in range(REGISTERSPERROW + 1):
@@ -655,10 +842,23 @@ with dpg.window(tag="Primary Window", width=1000):
                                                    callback=outputRegisterTextChanged, decimal=True, width=75,
                                                    user_data=i * REGISTERSPERROW + j)
 
-dpg.create_viewport(title='pyModbusServerGUI')
+    with dpg.collapsing_header(label="PCS配置"):
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="添加配置", callback=addConfigWindow, tag="addConfigButton")
+            dpg.add_button(label="修改配置", callback=updateConfigWindow, tag="updateConfigButton")
+            dpg.add_button(label="删除配置", callback=deleteConfig, tag="deleteConfigButton")
+        initPcsConfigTable()
+
+dpg.create_viewport(title='pyModbusServerGUI', width=1800, height=1000)
+
+# 设置主窗口图标
+dpg.set_viewport_large_icon("resources/m.ico")
+# 设置任务栏图标
+dpg.set_viewport_small_icon("resources/m.ico")
 
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.set_primary_window("Primary Window", True)
+dpg.set_exit_callback(stopAutoSimulation)
 dpg.start_dearpygui()
 dpg.destroy_context()

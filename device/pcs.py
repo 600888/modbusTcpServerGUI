@@ -1,8 +1,10 @@
+import logging
 import random
 
 
 class Pcs:
     def __init__(self):
+        # 读数据
         self.totalAcPower = 0  # 总交流有功功率
         self.totalAcReactivePower = 0  # 总交流无功功率
         self.totalApparentPower = 0  # 总交流视在功率
@@ -19,6 +21,13 @@ class Pcs:
         self.phaseCCurrent = 0  # C相电流
         self.acFrequency = 0  # 交流频率
 
+        # 写数据
+        self.isStart = 0  # pcs开关机设置
+        self.isCharge = 0  # pcs充放电设置
+        self.isManual = 0  # 手动并离网模式 0:离网 1:并网
+        self.isPlan = 0  # 是否启用计划曲线运行
+        self.runMode = 0  # 运行模式，恒定功率模式，恒定电流模式
+
     # 获取总交流有功功率
     def getTotalAcPower(self):
         return self.totalAcPower
@@ -33,7 +42,8 @@ class Pcs:
 
     # 获取总交流功率因数
     def getTotalPowerFactor(self):
-        return self.totalAcPower / self.totalApparentPower
+        logging.debug("totalAcPower: %d, totalApparentPower: %d" % (self.totalAcPower, self.totalApparentPower))
+        return self.totalAcPower * 1000 / self.totalApparentPower
 
     # 获取当天交流充电量
     def getTodayAcChargeEnergy(self):
@@ -84,7 +94,10 @@ class Pcs:
         self.totalAcPower = random.randint(1000, 2000)
         self.totalAcReactivePower = random.randint(1000, 2000)
         self.totalApparentPower = random.randint(1000, 2000)
-        self.totoalPowerFactor = self.getTotalPowerFactor()
+        self.totalPowerFactor = random.randint(1000, 2000)
+        # self.totoalPowerFactor = int(self.totalAcPower * 1000 / self.totalApparentPower)
+        # print("totoalPowerFactor: %d" % self.totoalPowerFactor)
+        self.todayAcChargeEnergy = random.randint(1000, 2000)
         self.todayAcDischargeEnergy = random.randint(1000, 2000)
         self.pcsTemperature = random.randint(200, 300)
         self.environmentTemperature = random.randint(200, 300)
@@ -95,3 +108,10 @@ class Pcs:
         self.phaseBCurrent = random.randint(100, 200)
         self.phaseCCurrent = random.randint(100, 200)
         self.acFrequency = random.randint(1000, 2000)
+
+        # 写数据
+        self.isStart = random.randint(0, 1)
+        self.isCharge = random.randint(0, 1)
+        self.isManual = random.randint(0, 1)
+        self.isPlan = random.randint(0, 1)
+        self.runMode = random.randint(0, 1)

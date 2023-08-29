@@ -3,13 +3,6 @@
   <component name="CsvFileAttributes">
     <option name="attributeMap">
       <map>
-        <entry key="\export\point_csv\data.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
         <entry key="\point_csv\data.csv">
           <value>
             <Attribute>
@@ -17,7 +10,21 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="\point_csv\point.csv">
+        <entry key="\point_csv\pcs.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\point_csv\test.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\point_csv\test1.csv">
           <value>
             <Attribute>
               <option name="separator" value="," />
