@@ -1,5 +1,6 @@
 import logging
 import random
+from config.pcs_config import PcsConfig
 
 
 class Pcs:
@@ -115,3 +116,16 @@ class Pcs:
         self.isManual = random.randint(0, 1)
         self.isPlan = random.randint(0, 1)
         self.runMode = random.randint(0, 1)
+
+    def setPcsConfig(self, pcs_config):
+        self.isStart = 1 if pcs_config.server_status else 0
+        self.runMode = 1 if pcs_config.run_mode == "恒流" else 0
+        self.phaseAVoltage = pcs_config.voltage
+        self.phaseACurrent = pcs_config.current
+        self.phaseBVoltage = pcs_config.voltage
+        self.phaseBCurrent = pcs_config.current
+        self.phaseCVoltage = pcs_config.voltage
+        self.phaseCCurrent = pcs_config.current
+        self.totalAcPower = pcs_config.power
+        self.totalAcReactivePower = pcs_config.power
+        self.totalApparentPower = pcs_config.power

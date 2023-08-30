@@ -139,6 +139,13 @@ class ModbusPcsServerGUI(ModbusServerGUI):
     config_list = []
     pcs = Pcs()
 
+    # 设置PCS配置数据
+    def setPcsConfig(self, pcs_config):
+        self.pcs.setPcsConfig(pcs_config)
+        self.setAllRegisterValues()
+        if self.pcs.isStart == 0:
+            self.stopServer()
+
     # 设置PCS模拟数据
     def setSimulatePcsValues(self):
         self.pcs.setRandomData()
