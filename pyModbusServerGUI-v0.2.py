@@ -8,7 +8,11 @@ import dearpygui.dearpygui as dpg
 import random
 import csv
 
-from pyModbusTCP.logger import log
+development = False
+if development:
+    from pyModbusTCP.logger import log
+else:
+    import my_log
 
 NUMCOILS = 4000  # number of coils we allow user to configure in the GUI, if this is too large then the display is unusable
 COILSPERROW = 40  # how many coil tickboxes to display in each table row
@@ -29,6 +33,7 @@ modbusServer = None
 
 thread = None
 stop_event = threading.Event()
+log = None
 
 
 # print any debug info text into console
@@ -584,7 +589,6 @@ def import_pcs_config():
                                        obj["电压"], obj["电流"], obj["功率"]["类型"], obj["功率"]["值"])
                 pcs_config_list.append(pcs_config)
 
-            log.debug("pcs_config_list: " + str(pcs_config_list))
             if not Strategy.check_strategy(pcs_config_list):
                 pcs_config_list.clear()
                 # 弹窗警告
@@ -687,14 +691,14 @@ def initPcsConfig():
                         dpg.add_text(tag="pcs_config" + str(i * 20 + 4), default_value=pcs_config_list[i].voltage)
                         dpg.add_text(tag="pcs_config" + str(i * 20 + 5), default_value=pcs_config_list[i].current)
                         dpg.add_text(tag="pcs_config" + str(i * 20 + 6),
-                                     default_value=PcsConfig.power_map[pcs_config_list[i].power_type] + "：" +
+                                     default_value=PcsConfig.power_itoa_map[pcs_config_list[i].power_type] + "：" +
                                                    str(pcs_config_list[i].power))
                 dpg.configure_item(pcsConfig_Table, height=500)
 
 
 def addConfig(time_offset, server_status, run_mode, voltage, current, power_type, power):
     pcs_config = PcsConfig(len(pcs_config_list), time_offset, server_status, "恒功率" if run_mode == 0 else "恒流",
-                           voltage, current, power_type, power)
+                           voltage, current, PcsConfig.power_atoi_map[power_type], power)
 
     pcs_config_list.append(pcs_config)
     dpg.delete_item("addConfigWindow")
@@ -739,8 +743,7 @@ def setPcsConfigWindow(pcs_label, window, method):
         second_input_indent = 650
         with dpg.group(horizontal=True):
             dpg.add_text("时间偏移量：")
-            time_offset = dpg.add_input_text(tag="time_offset", indent=start_indent, width=input_width,
-                                             default_value="5")
+            time_offset = dpg.add_input_text(tag="time_offset", indent=start_indent, width=input_width, hint="单位：秒")
             dpg.add_text("PCS服务开启：", indent=text_indent)
             server_status = dpg.add_checkbox(tag="server_status", indent=second_input_indent)
         with dpg.group(horizontal=True):
@@ -748,25 +751,25 @@ def setPcsConfigWindow(pcs_label, window, method):
             run_mode = dpg.add_input_text(tag="run_mode", indent=start_indent, width=input_width,
                                           hint="0：恒功率；1：恒流")
             dpg.add_text("电压：", indent=text_indent)
-            voltage = dpg.add_input_text(tag="voltage", indent=second_input_indent, width=input_width)
+            voltage = dpg.add_input_text(tag="voltage", indent=second_input_indent, width=input_width, hint="单位：V")
         with dpg.group(horizontal=True):
             dpg.add_text("电流：")
-            current = dpg.add_input_text(tag="current", indent=start_indent, width=input_width)
+            current = dpg.add_input_text(tag="current", indent=start_indent, width=input_width, hint="单位：A")
             dpg.add_text("功率：", indent=text_indent)
             power_combo = dpg.add_combo(["有功功率", "无功功率"], default_value="有功功率", tag="power_type",
                                         indent=second_input_indent, width=input_width)
-            power_text = dpg.add_input_text(tag="power", width=input_width)
+            power_text = dpg.add_input_text(tag="power", width=input_width, hint="单位：KW")
 
         if method == "update":
-            log.debug("配置列表长度：" + str(len(pcs_config_list)))
-            log.debug(len(pcs_id_list))
+            log.debug("pcs配置列表长度：" + str(len(pcs_config_list)))
+            log.debug("pcs配置id：" + str(len(pcs_id_list)))
             pcs_config_id = pcs_id_list[0]
             dpg.set_value(time_offset, pcs_config_list[pcs_id_list[-1]].time_offset)
             dpg.set_value(server_status, pcs_config_list[pcs_id_list[-1]].server_status)
             dpg.set_value(run_mode, pcs_config_list[pcs_id_list[-1]].run_mode)
             dpg.set_value(voltage, pcs_config_list[pcs_id_list[-1]].voltage)
             dpg.set_value(current, pcs_config_list[pcs_id_list[-1]].current)
-            dpg.set_value(power_combo, PcsConfig.power_map[pcs_config_list[pcs_id_list[-1]].power_type])
+            dpg.set_value(power_combo, PcsConfig.power_itoa_map[pcs_config_list[pcs_id_list[-1]].power_type])
             dpg.set_value(power_text, pcs_config_list[pcs_id_list[-1]].power)
 
         if method == "add":
@@ -812,6 +815,7 @@ def deleteConfig():
             dpg.delete_item("confirmDeletePcsConfig")
             dpg.delete_item("pcsMainWindow")
             initPcsConfig()
+            log.info("删除PCS配置成功！")
 
         pcs_id_list = get_pcs_id_list()
         dpg.add_text("确认删除PCS配置" + str(pcs_id_list) + "吗？")
@@ -840,6 +844,7 @@ with dpg.theme() as red_bg_theme:
         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (230, 0, 0), category=dpg.mvThemeCat_Core)
 
 with dpg.window(tag="Primary Window", width=1500):
+    log = my_log.MyCustomLogger()
     dpg.bind_font(default_font)
     dpg.add_text("Modbus/TCP 服务器地址:", tag="serverText")
 

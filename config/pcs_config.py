@@ -13,7 +13,6 @@ class Strategy:
     # 检查策略是否正确
     @staticmethod
     def check_strategy(pcs_config_list):
-        return True
         # 如果后面的时间偏移量比前面的时间偏移量小，返回False
         for i in range(len(pcs_config_list) - 1):
             if int(pcs_config_list[i].time_offset) > int(pcs_config_list[i + 1].time_offset):
@@ -29,7 +28,8 @@ class PcsConfig:
     current = 0
     power_type = 0
     power = 0
-    power_map = {"0": "有功功率", "1": "无功功率"}
+    power_itoa_map = {"0": "有功功率", "1": "无功功率"}
+    power_atoi_map = {"有功功率": "0", "无功功率": "1"}
 
     def __init__(self, id, time_offset, server_status, run_mode, voltage, current, power_type, power):
         self.id = id
@@ -38,7 +38,7 @@ class PcsConfig:
         self.run_mode = run_mode if run_mode is not None else 0
         self.voltage = voltage if voltage is not None else 0
         self.current = current if current is not None else 0
-        self.power_type = "0" if power_type == "有功功率" else "1"
+        self.power_type = power_type
         self.power = power if power is not None else 0
 
     def __dict__(self):
