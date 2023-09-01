@@ -1,3 +1,4 @@
+import copy
 import threading
 import time
 from typing import List
@@ -7,12 +8,19 @@ from device.modbus_server import ModbusPcsServerGUI, ModbusBmsServerGUI
 import dearpygui.dearpygui as dpg
 import random
 import csv
+import sys
 
 development = False
 if development:
     from pyModbusTCP.logger import log
 else:
     import my_log
+
+# 隐藏控制台
+# if sys.platform == "win32":
+#     import ctypes
+#
+#     ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
 
 NUMCOILS = 4000  # number of coils we allow user to configure in the GUI, if this is too large then the display is unusable
 COILSPERROW = 40  # how many coil tickboxes to display in each table row
@@ -92,7 +100,6 @@ def checkModbusServer(sender, app_data):
 
 
 def coilClicked(sender, app_data, user_data):
-    debugLog(f"coilClicked - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
     global coilList
 
@@ -121,7 +128,6 @@ def coilClicked(sender, app_data, user_data):
 
 
 def randomiseCoils(sender, app_data, user_data):
-    debugLog(f"randomiseCoils - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
     global coilList
 
@@ -159,7 +165,6 @@ def randomiseCoils(sender, app_data, user_data):
 
 
 def clearCoils(sender, app_data, user_data):
-    debugLog(f"clearCoils - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
     global coilList
 
@@ -186,7 +191,6 @@ def clearCoils(sender, app_data, user_data):
 
 
 def setManualCoils(sender, app_data, user_data):
-    debugLog(f"setManualCoils - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
     # clear out the GUI options incase they were set before
     clearCoils("uNF", "uNF", "uNF")
@@ -217,7 +221,6 @@ def setManualCoils(sender, app_data, user_data):
 
 
 def randomiseRegisters(sender, app_data, user_data):
-    debugLog(f"randomiseRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
     global registerList
 
@@ -232,7 +235,6 @@ def randomiseRegisters(sender, app_data, user_data):
 
 
 def clearRegisters(sender, app_data, user_data):
-    debugLog(f"clearRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
     global registerList
 
@@ -247,7 +249,6 @@ def clearRegisters(sender, app_data, user_data):
 
 
 def refreshRegisters(sender, app_data, user_data):
-    debugLog(f"refreshRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
     global registerList
     tempRegisterList = modbusServer.readRegisterValues("input")
@@ -262,7 +263,6 @@ def refreshRegisters(sender, app_data, user_data):
 
 
 def registerTextChanged(sender, app_data, user_data):
-    debugLog(f"registerTextChangedsender - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
     global registerList
     if len(app_data) == 0:
@@ -318,10 +318,11 @@ def stopAutoSimulation(sender, app_data, user_data):
     if thread is not None and thread.is_alive():
         stop_event.set()
         thread.join()
+        dpg.configure_item("configStatus", default_value="停止")
+        dpg.bind_item_theme("configStatus", red_bg_theme)
 
 
 def randomiseOutputRegisters(sender, app_data, user_data):
-    debugLog(f"randomiseOutputRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
     global outputRegisterList
 
@@ -336,7 +337,6 @@ def randomiseOutputRegisters(sender, app_data, user_data):
 
 
 def refreshOutputRegistersTable(sender, app_data, user_data):
-    debugLog(f"refreshCoils - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
     global outputRegisterList
     tempRegisterList = modbusServer.readRegisterValues("output")
@@ -424,7 +424,6 @@ def setCellValues(sender, app_data, user_data):
 
 
 def clearOutputRegisters(sender, app_data, user_data):
-    debugLog(f"clearOutputRegisters - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
     global outputRegisterList
 
@@ -439,7 +438,6 @@ def clearOutputRegisters(sender, app_data, user_data):
 
 
 def outputRegisterTextChanged(sender, app_data, user_data):
-    debugLog(f"outputRegisterTextChanged - sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     startModbusServer("uNF", "uNF", "uNF")
     global outputRegisterList
     if len(app_data) == 0:
@@ -584,13 +582,16 @@ def import_pcs_config():
         with open(file_path, 'r', encoding="utf-8") as f:
             data = json.load(f)
             log.debug("data: " + str(data))
+            length = len(data)
+            log.debug("length: " + str(length))
             for obj in data:
                 pcs_config = PcsConfig(obj["id"], obj["偏移量"], obj["pcs服务开启"], obj["运行模式"],
                                        obj["电压"], obj["电流"], obj["功率"]["类型"], obj["功率"]["值"])
                 pcs_config_list.append(pcs_config)
 
             if not Strategy.check_strategy(pcs_config_list):
-                pcs_config_list.clear()
+                for i in range(length):
+                    pcs_config_list.pop()
                 # 弹窗警告
                 with dpg.window(label="警告", modal=True, show=False, no_close=True, tag="warningWindow",
                                 pos=[500, 300]):
@@ -626,35 +627,56 @@ def applyConfig(sender, app_data, user_data):
     global stop_event, pcs_config_list, thread
     stop_event = threading.Event()
 
+    def get_pcs_config_list(loop_count):
+        config_list = []
+        for i in range(loop_count):
+            for j in range(len(pcs_config_list)):
+                pcs_config = PcsConfig(pcs_config_list[j].id + i * len(pcs_config_list),
+                                       str(int(pcs_config_list[j].time_offset) + i * int(
+                                           pcs_config_list[-1].time_offset)),
+                                       pcs_config_list[j].server_status, pcs_config_list[j].run_mode,
+                                       pcs_config_list[j].voltage, pcs_config_list[j].current,
+                                       pcs_config_list[j].power_type, pcs_config_list[j].power)
+                config_list.append(pcs_config)
+        return config_list
+
     def pcsApplyConfigThread(sender, app_data, user_data):
+        log.info("pcs thread started")
         count = 0
         i = 0
+        config_list = get_pcs_config_list(dpg.get_value("loopCount"))
         while not stop_event.is_set():
-            # if modbusServer.pcs.isStart == 1:
-            #     setRandomPcsValues(sender, app_data, user_data)
-            # refreshRegisters(sender, app_data, user_data)
-            if i < len(pcs_config_list):
-                if int(pcs_config_list[i].time_offset) == count:
-                    modbusServer.setPcsConfig(pcs_config_list[i])
-                    print(count, pcs_config_list[i].time_offset, pcs_config_list[i].server_status,
-                          pcs_config_list[i].run_mode, pcs_config_list[i].voltage,
-                          pcs_config_list[i].current, pcs_config_list[i].power_type,
-                          pcs_config_list[i].power)
+            if i < len(config_list):
+                if int(config_list[i].time_offset) == count:
+                    modbusServer.setPcsConfig(config_list[i])
+                    log.info("设置第" + str(i + 1) + "个配置"
+                             + " 偏移量：" + str(config_list[i].time_offset +
+                                                " pcs服务开启：" + str(config_list[i].server_status) +
+                                                " 运行模式：" + str(config_list[i].run_mode) +
+                                                " 电压：" + str(config_list[i].voltage) +
+                                                " 电流：" + str(config_list[i].current) +
+                                                " 功率类型：" + str(config_list[i].power_type) +
+                                                " 功率值：" + str(config_list[i].power)))
                     i += 1
             refreshRegisters(sender, app_data, user_data)
             time.sleep(1)
             count += 1
-        print("pcs config thread stopped")
+        log.warning("pcs thread stopped")
 
     # 开启一个python线程每秒刷新一次
-    global thread
     if modbusServer.getType() == "Modbus PCS":
         thread = threading.Thread(target=pcsApplyConfigThread, args=(sender, app_data, user_data))
     thread.start()
 
+    if thread is not None and thread.is_alive():
+        dpg.configure_item("configStatus", default_value="应用中")
+        dpg.bind_item_theme("configStatus", green_bg_theme)
+    else:
+        dpg.configure_item("configStatus", default_value="停止")
+        dpg.bind_item_theme("configStatus", red_bg_theme)
+
 
 def initPcsConfig():
-    # addConfig("1", "1", "1", "1", "1", "有功功率", "1")
     pcs_check_box_list.clear()
     clearConfigWindow()
     with dpg.child_window(autosize_x=True, autosize_y=True, horizontal_scrollbar=True, tag="pcsMainWindow",
@@ -666,7 +688,14 @@ def initPcsConfig():
             dpg.add_button(label="删除配置", callback=deleteConfig, tag="deleteConfigButton")
             dpg.add_button(label="导入配置", callback=import_pcs_config, tag="importPcsConfig")
             dpg.add_button(label="导出配置", callback=export_pcs_config, tag="exportPcsConfig")
+        with dpg.group(horizontal=True):
+            dpg.add_input_int(label="循环次数", tag="loopCount", width=150, default_value=1, min_clamped=True,
+                              min_value=1)
+            dpg.add_input_text(default_value="", tag="configStatus", indent=298, width=108, readonly=True)
+            dpg.configure_item("configStatus", default_value="停止")
+            dpg.bind_item_theme("configStatus", red_bg_theme)
             dpg.add_button(label="应用配置", callback=applyConfig, tag="applyConfigButton")
+            dpg.add_button(label="停止应用", callback=stopAutoSimulation, tag="stopApplyConfigButton")
         with dpg.child_window(autosize_x=True, autosize_y=True, horizontal_scrollbar=True, tag="pcsConfigWindow"):
             with dpg.table(tag="pcsConfigTable", header_row=True, row_background=False,
                            borders_innerH=True, borders_outerH=True, policy=dpg.mvTable_SizingFixedFit,
@@ -701,6 +730,16 @@ def addConfig(time_offset, server_status, run_mode, voltage, current, power_type
                            voltage, current, PcsConfig.power_atoi_map[power_type], power)
 
     pcs_config_list.append(pcs_config)
+    if not Strategy.check_strategy(pcs_config_list):
+        pcs_config_list.pop()
+        # 弹窗警告
+        with dpg.window(label="警告", modal=True, show=False, no_close=True, tag="warningWindow", pos=[500, 300]):
+            dpg.add_text("添加配置失败！")
+            log.warning("添加配置失败！")
+            dpg.add_button(label="确定", width=100,
+                           callback=lambda: dpg.delete_item("warningWindow"))
+            dpg.configure_item("warningWindow", show=True)
+        return
     dpg.delete_item("addConfigWindow")
     dpg.delete_item("pcsMainWindow")
     initPcsConfig()
@@ -728,6 +767,16 @@ def updateConfig(pcs_config_id, time_offset, server_status, run_mode, voltage, c
 
 
 def setPcsConfigWindow(pcs_label, window, method):
+    global thread
+    if thread is not None and thread.is_alive():
+        # 弹窗警告
+        with dpg.window(label="警告", modal=True, show=False, no_close=True, tag="warningWindow", pos=[500, 300]):
+            dpg.add_text("请先停止应用配置！")
+            log.warning("请先停止应用配置！")
+            dpg.add_button(label="确定", width=100,
+                           callback=lambda: dpg.delete_item("warningWindow"))
+            dpg.configure_item("warningWindow", show=True)
+        return
     pcs_id_list = get_pcs_id_list()
     if method == "update":
         if len(pcs_id_list) != 1:
@@ -745,7 +794,7 @@ def setPcsConfigWindow(pcs_label, window, method):
             dpg.add_text("时间偏移量：")
             time_offset = dpg.add_input_text(tag="time_offset", indent=start_indent, width=input_width, hint="单位：秒")
             dpg.add_text("PCS服务开启：", indent=text_indent)
-            server_status = dpg.add_checkbox(tag="server_status", indent=second_input_indent)
+            server_status = dpg.add_checkbox(tag="server_status", indent=second_input_indent, default_value=True)
         with dpg.group(horizontal=True):
             dpg.add_text("运行模式：")
             run_mode = dpg.add_input_text(tag="run_mode", indent=start_indent, width=input_width,
@@ -806,6 +855,16 @@ def updateConfigWindow():
 
 
 def deleteConfig():
+    global thread
+    if thread is not None and thread.is_alive():
+        # 弹窗警告
+        with dpg.window(label="警告", modal=True, show=False, no_close=True, tag="warningWindow", pos=[500, 300]):
+            dpg.add_text("请先停止应用配置！")
+            log.warning("请先停止应用配置！")
+            dpg.add_button(label="确定", width=100,
+                           callback=lambda: dpg.delete_item("warningWindow"))
+            dpg.configure_item("warningWindow", show=True)
+        return
     with dpg.window(label="删除PCS配置", modal=True, no_close=True, show=False, tag="confirmDeletePcsConfig",
                     pos=[600, 300]):
         def delete_pcs_config_by_id(sender, app_data, user_data):
@@ -853,7 +912,6 @@ with dpg.window(tag="Primary Window", width=1500):
 
     ip_list = []
     for interface in interfaces():
-        debugLog("Address Found: " + str(ifaddresses(interface)))
         for link in ifaddresses(interface).get(AF_INET, ()):
             ip_list.append(link['addr'])
 
@@ -868,7 +926,7 @@ with dpg.window(tag="Primary Window", width=1500):
     deviceTypeGroup = dpg.add_group(horizontal=True)
     dpg.add_text("设备类型:", tag="deviceTypeText", parent=deviceTypeGroup)
     # 设置MODBUS的下拉框选项
-    modbus_combo = dpg.add_combo(("Modbus PCS", "Modbus BMS"), default_value="Modbus BMS", tag="modbusType", width=250,
+    modbus_combo = dpg.add_combo(("Modbus PCS", "Modbus BMS"), default_value="Modbus PCS", tag="modbusType", width=250,
                                  indent=300, parent=deviceTypeGroup)
     on_modbus_type_selected(modbus_combo, None)
     dpg.set_item_callback(modbus_combo, on_modbus_type_selected)

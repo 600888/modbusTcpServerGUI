@@ -39,7 +39,6 @@ class ModbusServerGUI:
             return False
 
     def setCoilBits(self, coilList):
-        self.debugLog("setCoilBits with array size: " + str(len(coilList)))
         # self.debugLog("array: " + str(coilList))
 
         if not self.checkRunning():
@@ -50,7 +49,6 @@ class ModbusServerGUI:
         self.serverObj.data_hdl.write_coils(0, coilList, "None")
 
     def setRegisterValues(self, registerList, type="input"):
-        self.debugLog("setRegisterValues with array size: " + str(len(registerList)))
         if not self.checkRunning():
             self.debugLog("set registers called without live server")
             return False

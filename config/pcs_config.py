@@ -13,10 +13,16 @@ class Strategy:
     # 检查策略是否正确
     @staticmethod
     def check_strategy(pcs_config_list):
+        # 先检查所有配置策略，是否有不合法的时间偏移量
+        for pcs_config in pcs_config_list:
+            if pcs_config.time_offset == "" or pcs_config.time_offset is None:
+                return False
         # 如果后面的时间偏移量比前面的时间偏移量小，返回False
         for i in range(len(pcs_config_list) - 1):
-            if int(pcs_config_list[i].time_offset) > int(pcs_config_list[i + 1].time_offset):
+            if int(pcs_config_list[i].time_offset) >= int(
+                    pcs_config_list[i + 1].time_offset):
                 return False
+        return True
 
 
 class PcsConfig:
