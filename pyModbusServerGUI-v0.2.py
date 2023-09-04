@@ -8,7 +8,6 @@ from device.modbus_server import ModbusPcsServerGUI, ModbusBmsServerGUI
 import dearpygui.dearpygui as dpg
 import random
 import csv
-import sys
 
 development = False
 if development:
@@ -903,175 +902,183 @@ with dpg.theme() as red_bg_theme:
         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (230, 0, 0), category=dpg.mvThemeCat_Core)
 
 with dpg.window(tag="Primary Window", width=1500):
-    log = my_log.MyCustomLogger()
-    dpg.bind_font(default_font)
-    dpg.add_text("Modbus/TCP 服务器地址:", tag="serverText")
+    with dpg.tab_bar(tag="tabBar"):
+        with dpg.tab(label="主界面"):
+            log = my_log.MyCustomLogger()
+            dpg.bind_font(default_font)
+            dpg.add_text("Modbus/TCP 服务器地址:", tag="serverText")
 
-    # get list of all available IPs and offer to user in a dropdown list
-    from netifaces import interfaces, ifaddresses, AF_INET
+            # get list of all available IPs and offer to user in a dropdown list
+            from netifaces import interfaces, ifaddresses, AF_INET
 
-    ip_list = []
-    for interface in interfaces():
-        for link in ifaddresses(interface).get(AF_INET, ()):
-            ip_list.append(link['addr'])
+            ip_list = []
+            for interface in interfaces():
+                for link in ifaddresses(interface).get(AF_INET, ()):
+                    ip_list.append(link['addr'])
 
-    dpg.add_combo(ip_list, default_value=ip_list[0], tag="serverAddress", width=250, indent=300)
-    serverAddressGroup = dpg.add_group(horizontal=True)
-    dpg.move_item("serverText", parent=serverAddressGroup)
-    dpg.move_item("serverAddress", parent=serverAddressGroup)
+            dpg.add_combo(ip_list, default_value=ip_list[0], tag="serverAddress", width=250, indent=300)
+            serverAddressGroup = dpg.add_group(horizontal=True)
+            dpg.move_item("serverText", parent=serverAddressGroup)
+            dpg.move_item("serverAddress", parent=serverAddressGroup)
 
-    dpg.add_text("端口号:", tag="serverPortText")
-    dpg.add_input_text(default_value="10502", tag="serverPort", width=100, indent=300)
+            dpg.add_text("端口号:", tag="serverPortText")
+            dpg.add_input_text(default_value="10502", tag="serverPort", width=100, indent=300)
 
-    deviceTypeGroup = dpg.add_group(horizontal=True)
-    dpg.add_text("设备类型:", tag="deviceTypeText", parent=deviceTypeGroup)
-    # 设置MODBUS的下拉框选项
-    modbus_combo = dpg.add_combo(("Modbus PCS", "Modbus BMS"), default_value="Modbus PCS", tag="modbusType", width=250,
-                                 indent=300, parent=deviceTypeGroup)
-    on_modbus_type_selected(modbus_combo, None)
-    dpg.set_item_callback(modbus_combo, on_modbus_type_selected)
+            deviceTypeGroup = dpg.add_group(horizontal=True)
+            dpg.add_text("设备类型:", tag="deviceTypeText", parent=deviceTypeGroup)
+            # 设置MODBUS的下拉框选项
+            modbus_combo = dpg.add_combo(("Modbus PCS", "Modbus BMS"), default_value="Modbus PCS", tag="modbusType",
+                                         width=250,
+                                         indent=300, parent=deviceTypeGroup)
+            on_modbus_type_selected(modbus_combo, None)
+            dpg.set_item_callback(modbus_combo, on_modbus_type_selected)
 
-    serverPortGroup = dpg.add_group(horizontal=True)
-    dpg.move_item("serverPortText", parent=serverPortGroup)
-    dpg.move_item("serverPort", parent=serverPortGroup)
+            serverPortGroup = dpg.add_group(horizontal=True)
+            dpg.move_item("serverPortText", parent=serverPortGroup)
+            dpg.move_item("serverPort", parent=serverPortGroup)
 
-    dpg.add_button(label="开启服务", callback=startModbusServer, tag="startServerButton")
-    dpg.add_button(label="停止服务", callback=stopModbusServer, tag="stopServerButton")
-    dpg.add_button(label="确认服务", callback=checkModbusServer, tag="checkServerButton")
-    dpg.add_text("状态:", tag="serverStatusText")
-    dpg.add_input_text(default_value="停止", tag="serverStatus", width=150, readonly=True, indent=300)
-    serverStatusGroup = dpg.add_group(horizontal=True)
-    dpg.move_item("serverStatusText", parent=serverStatusGroup)
-    dpg.move_item("serverStatus", parent=serverStatusGroup)
-    dpg.move_item("startServerButton", parent=serverStatusGroup)
-    dpg.move_item("stopServerButton", parent=serverStatusGroup)
-    dpg.move_item("checkServerButton", parent=serverStatusGroup)
+            dpg.add_button(label="开启服务", callback=startModbusServer, tag="startServerButton")
+            dpg.add_button(label="停止服务", callback=stopModbusServer, tag="stopServerButton")
+            dpg.add_button(label="确认服务", callback=checkModbusServer, tag="checkServerButton")
+            dpg.add_text("状态:", tag="serverStatusText")
+            dpg.add_input_text(default_value="停止", tag="serverStatus", width=150, readonly=True, indent=300)
+            serverStatusGroup = dpg.add_group(horizontal=True)
+            dpg.move_item("serverStatusText", parent=serverStatusGroup)
+            dpg.move_item("serverStatus", parent=serverStatusGroup)
+            dpg.move_item("startServerButton", parent=serverStatusGroup)
+            dpg.move_item("stopServerButton", parent=serverStatusGroup)
+            dpg.move_item("checkServerButton", parent=serverStatusGroup)
 
-    # 设置电芯数据
-    with dpg.group(horizontal=True):
-        dpg.add_button(label="设置单个电芯值", callback=setCellValues,
-                       tag="setCellValuesButton")
-        dpg.add_button(label="随机设置所有电芯值", callback=setRandomCellValues,
-                       tag="randomiseAllCellButton")
-        dpg.add_button(label="随机设置所有PCS值", callback=setRandomPcsValues,
-                       tag="randomiseAllPcsValuesButton")
-
-        # 导出CSV文件
-        dpg.add_button(label="导出CSV文件", callback=export_csv, tag="exportCSVButton")
-
-    # 1-9999 - discrete output coils R/W - binary
-    # At the moment it is R/O, the backend server library may let clients write values but they won't be reflected in the GUI
-    with dpg.collapsing_header(label="离散输出线圈值"):
-        with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _coil_child_window:
-
-            dpg.add_button(label="随机生成线圈值", callback=randomiseCoils, tag="randomiseCoilsButton")
-            dpg.add_button(label="清空线圈值", callback=clearCoils, tag="clearCoilsButton")
-            # dpg.add_button(label="Refresh Table", callback=refreshCoils, tag="refreshCoilsButton")
-            coilValueGroup = dpg.add_group(horizontal=True)
-            dpg.move_item("randomiseCoilsButton", parent=coilValueGroup)
-            dpg.move_item("clearCoilsButton", parent=coilValueGroup)
-            # dpg.move_item("refreshCoilsButton", parent=coilValueGroup)
-
-            with dpg.table(tag="coilsTable", header_row=True, row_background=False,
-                           borders_innerH=True, borders_outerH=True, policy=dpg.mvTable_SizingFixedFit,
-                           borders_innerV=True, scrollX=True, scrollY=True, freeze_rows=1,
-                           borders_outerV=True, delay_search=True, no_host_extendX=True, resizable=True,
-                           width=1800) as coil_table_id:
-                for i in range(COILSPERROW + 1):
-                    if i == 0:
-                        dpg.add_table_column()
-                    else:
-                        dpg.add_table_column(label=i)
-
-                for i in range(MAXCOILROWS):
-                    with dpg.table_row():
-                        for j in range(0, COILSPERROW + 1):
-                            if j == 0:
-                                rowval = COILSPERROW * i
-                                dpg.add_text(f"{rowval}")
-                            else:
-                                dpg.add_checkbox(tag="coils" + str(i * COILSPERROW + j), callback=coilClicked,
-                                                 user_data=(COILSPERROW * i + j))
-                                dpg.highlight_table_cell(coil_table_id, i, j, [230, 0, 0, 100])
-
-    with dpg.collapsing_header(label="导入CSV设置离散输入寄存器"):
-        dpg.add_text("输入以逗号分隔的线圈值列表作为1-9999地址范围内的整数值")
-        dpg.add_input_text(default_value="", tag="coilValueInputText", multiline=True)
-        dpg.add_button(label="设置离散量输入值", callback=setManualCoils, tag="setManualCoilsButton")
-        dpg.add_input_text(default_value="状态", tag="coilValueStatusText", readonly=True)
-
-    # 30001 - 39999 - 输入寄存器 - R/O - 16 bit int
-    with dpg.collapsing_header(
-            label="模拟输入寄存器值GUI，如果客户端更改了值，需手动点击刷新按钮才能更新GUI"):
-        with dpg.group(horizontal=True):
-            dpg.add_button(label="随机生成输入寄存器值", callback=randomiseRegisters,
-                           tag="randomiseRegistersButton")
-            dpg.add_button(label="清空输入寄存器值", callback=clearRegisters, tag="clearRegistersButton")
-            dpg.add_button(label="刷新", callback=refreshRegisters, tag="refreshRegistersButton")
-            dpg.add_button(label="自动模拟", callback=autoSimulation, tag="autoSimulationButton")
-            dpg.add_button(label="停止模拟", callback=stopAutoSimulation, tag="stopRefreshRegistersButton")
-        with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _register_child_window:
-            # grid allowing entry of values 1-MAXREGISTERS
-
-            with dpg.table(tag="registersTable", header_row=True, row_background=False,
-                           borders_innerH=True, borders_outerH=True, policy=dpg.mvTable_SizingFixedFit,
-                           borders_innerV=True, scrollX=True, scrollY=True, freeze_rows=1,
-                           borders_outerV=True, delay_search=True, no_host_extendX=True, resizable=True,
-                           width=1800) as register_table_id:
-                for i in range(REGISTERSPERROW + 1):
-                    if i == 0:
-                        dpg.add_table_column()
-                    else:
-                        dpg.add_table_column(label=i)
-
-                for i in range(MAXREGISTERROWS):
-                    with dpg.table_row():
-                        for j in range(0, REGISTERSPERROW + 1):
-                            if j == 0:
-                                rowval = 30000 + (REGISTERSPERROW * i)
-                                dpg.add_text(f"{rowval}")
-                            else:
-                                dpg.add_input_text(tag="registers" + str(i * REGISTERSPERROW + j),
-                                                   callback=registerTextChanged, decimal=True, width=75,
-                                                   user_data=i * REGISTERSPERROW + j)
-
-    # 40001 - 49999 - 输出保持寄存器 - R/W - 16 bit int
-    with dpg.collapsing_header(
-            label="模拟输出寄存器值GUI，如果客户端更改了值，需手动点击刷新按钮才能更新GUI"):
-        with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _output_register_child_window:
+            # 设置电芯数据
             with dpg.group(horizontal=True):
-                dpg.add_button(label="随机生成输出寄存器值", callback=randomiseOutputRegisters,
-                               tag="randomiseOutputRegistersButton")
-                dpg.add_button(label="清空输出寄存器值", callback=clearOutputRegisters,
-                               tag="clearOutputRegistersButton")
-                dpg.add_button(label="刷新界面", callback=refreshOutputRegistersTable,
-                               tag="refreshOutputRegistersTableButton")
-            # grid allowing entry of values 1-MAXREGISTERS
+                dpg.add_button(label="设置单个电芯值", callback=setCellValues,
+                               tag="setCellValuesButton")
+                dpg.add_button(label="随机设置所有电芯值", callback=setRandomCellValues,
+                               tag="randomiseAllCellButton")
+                dpg.add_button(label="随机设置所有PCS值", callback=setRandomPcsValues,
+                               tag="randomiseAllPcsValuesButton")
 
-            with dpg.table(tag="outputRegistersTable", header_row=True, row_background=False,
-                           borders_innerH=True, borders_outerH=True, policy=dpg.mvTable_SizingFixedFit,
-                           borders_innerV=True, scrollX=True, scrollY=True, freeze_rows=1,
-                           borders_outerV=True, delay_search=True, no_host_extendX=True, resizable=True,
-                           width=1800) as output_register_table_id:
-                for i in range(REGISTERSPERROW + 1):
-                    if i == 0:
-                        dpg.add_table_column()
-                    else:
-                        dpg.add_table_column(label=i)
+                # 导出CSV文件
+                dpg.add_button(label="导出CSV文件", callback=export_csv, tag="exportCSVButton")
 
-                for i in range(MAXREGISTERROWS):
-                    with dpg.table_row():
-                        for j in range(0, REGISTERSPERROW + 1):
-                            if j == 0:
-                                rowval = 40000 + (REGISTERSPERROW * i)
-                                dpg.add_text(f"{rowval}")
+            # 1-9999 - discrete output coils R/W - binary
+            # At the moment it is R/O, the backend server library may let clients write values but they won't be reflected in the GUI
+            with dpg.collapsing_header(label="离散输出线圈值"):
+                with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _coil_child_window:
+
+                    dpg.add_button(label="随机生成线圈值", callback=randomiseCoils, tag="randomiseCoilsButton")
+                    dpg.add_button(label="清空线圈值", callback=clearCoils, tag="clearCoilsButton")
+                    # dpg.add_button(label="Refresh Table", callback=refreshCoils, tag="refreshCoilsButton")
+                    coilValueGroup = dpg.add_group(horizontal=True)
+                    dpg.move_item("randomiseCoilsButton", parent=coilValueGroup)
+                    dpg.move_item("clearCoilsButton", parent=coilValueGroup)
+                    # dpg.move_item("refreshCoilsButton", parent=coilValueGroup)
+
+                    with dpg.table(tag="coilsTable", header_row=True, row_background=False,
+                                   borders_innerH=True, borders_outerH=True, policy=dpg.mvTable_SizingFixedFit,
+                                   borders_innerV=True, scrollX=True, scrollY=True, freeze_rows=1,
+                                   borders_outerV=True, delay_search=True, no_host_extendX=True, resizable=True,
+                                   width=1800) as coil_table_id:
+                        for i in range(COILSPERROW + 1):
+                            if i == 0:
+                                dpg.add_table_column()
                             else:
-                                dpg.add_input_text(tag="outputregisters" + str(i * REGISTERSPERROW + j),
-                                                   callback=outputRegisterTextChanged, decimal=True, width=75,
-                                                   user_data=i * REGISTERSPERROW + j)
+                                dpg.add_table_column(label=i)
 
-    with dpg.collapsing_header(label="PCS配置", tag="pcsConfig"):
-        initPcsConfig()
+                        for i in range(MAXCOILROWS):
+                            with dpg.table_row():
+                                for j in range(0, COILSPERROW + 1):
+                                    if j == 0:
+                                        rowval = COILSPERROW * i
+                                        dpg.add_text(f"{rowval}")
+                                    else:
+                                        dpg.add_checkbox(tag="coils" + str(i * COILSPERROW + j), callback=coilClicked,
+                                                         user_data=(COILSPERROW * i + j))
+                                        dpg.highlight_table_cell(coil_table_id, i, j, [230, 0, 0, 100])
+
+            with dpg.collapsing_header(label="导入CSV设置离散输入寄存器"):
+                dpg.add_text("输入以逗号分隔的线圈值列表作为1-9999地址范围内的整数值")
+                dpg.add_input_text(default_value="", tag="coilValueInputText", multiline=True)
+                dpg.add_button(label="设置离散量输入值", callback=setManualCoils, tag="setManualCoilsButton")
+                dpg.add_input_text(default_value="状态", tag="coilValueStatusText", readonly=True)
+
+            # 30001 - 39999 - 输入寄存器 - R/O - 16 bit int
+            with dpg.collapsing_header(
+                    label="模拟输入寄存器值GUI，如果客户端更改了值，需手动点击刷新按钮才能更新GUI"):
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label="随机生成输入寄存器值", callback=randomiseRegisters,
+                                   tag="randomiseRegistersButton")
+                    dpg.add_button(label="清空输入寄存器值", callback=clearRegisters, tag="clearRegistersButton")
+                    dpg.add_button(label="刷新", callback=refreshRegisters, tag="refreshRegistersButton")
+                    dpg.add_button(label="自动模拟", callback=autoSimulation, tag="autoSimulationButton")
+                    dpg.add_button(label="停止模拟", callback=stopAutoSimulation, tag="stopRefreshRegistersButton")
+                with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _register_child_window:
+                    # grid allowing entry of values 1-MAXREGISTERS
+
+                    with dpg.table(tag="registersTable", header_row=True, row_background=False,
+                                   borders_innerH=True, borders_outerH=True, policy=dpg.mvTable_SizingFixedFit,
+                                   borders_innerV=True, scrollX=True, scrollY=True, freeze_rows=1,
+                                   borders_outerV=True, delay_search=True, no_host_extendX=True, resizable=True,
+                                   width=1800) as register_table_id:
+                        for i in range(REGISTERSPERROW + 1):
+                            if i == 0:
+                                dpg.add_table_column()
+                            else:
+                                dpg.add_table_column(label=i)
+
+                        for i in range(MAXREGISTERROWS):
+                            with dpg.table_row():
+                                for j in range(0, REGISTERSPERROW + 1):
+                                    if j == 0:
+                                        rowval = 30000 + (REGISTERSPERROW * i)
+                                        dpg.add_text(f"{rowval}")
+                                    else:
+                                        dpg.add_input_text(tag="registers" + str(i * REGISTERSPERROW + j),
+                                                           callback=registerTextChanged, decimal=True, width=75,
+                                                           user_data=i * REGISTERSPERROW + j)
+
+            # 40001 - 49999 - 输出保持寄存器 - R/W - 16 bit int
+            with dpg.collapsing_header(
+                    label="模拟输出寄存器值GUI，如果客户端更改了值，需手动点击刷新按钮才能更新GUI"):
+                with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _output_register_child_window:
+                    with dpg.group(horizontal=True):
+                        dpg.add_button(label="随机生成输出寄存器值", callback=randomiseOutputRegisters,
+                                       tag="randomiseOutputRegistersButton")
+                        dpg.add_button(label="清空输出寄存器值", callback=clearOutputRegisters,
+                                       tag="clearOutputRegistersButton")
+                        dpg.add_button(label="刷新界面", callback=refreshOutputRegistersTable,
+                                       tag="refreshOutputRegistersTableButton")
+                    # grid allowing entry of values 1-MAXREGISTERS
+
+                    with dpg.table(tag="outputRegistersTable", header_row=True, row_background=False,
+                                   borders_innerH=True, borders_outerH=True, policy=dpg.mvTable_SizingFixedFit,
+                                   borders_innerV=True, scrollX=True, scrollY=True, freeze_rows=1,
+                                   borders_outerV=True, delay_search=True, no_host_extendX=True, resizable=True,
+                                   width=1800) as output_register_table_id:
+                        for i in range(REGISTERSPERROW + 1):
+                            if i == 0:
+                                dpg.add_table_column()
+                            else:
+                                dpg.add_table_column(label=i)
+
+                        for i in range(MAXREGISTERROWS):
+                            with dpg.table_row():
+                                for j in range(0, REGISTERSPERROW + 1):
+                                    if j == 0:
+                                        rowval = 40000 + (REGISTERSPERROW * i)
+                                        dpg.add_text(f"{rowval}")
+                                    else:
+                                        dpg.add_input_text(tag="outputregisters" + str(i * REGISTERSPERROW + j),
+                                                           callback=outputRegisterTextChanged, decimal=True, width=75,
+                                                           user_data=i * REGISTERSPERROW + j)
+
+            with dpg.collapsing_header(label="PCS配置", tag="pcsConfig"):
+                initPcsConfig()
+        import battery_view
+        battery_view.initBatteryStackInfoView()
+        # with dpg.tab(label="电池堆信息", tag="batteryStackInfo",parent="tabBar"):
+        #     pass
+
 
 dpg.create_viewport(title='pyModbusServerGUI', width=1800, height=1000)
 

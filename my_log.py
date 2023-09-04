@@ -8,10 +8,11 @@ class MyCustomLogger:
         self.log_level = 0
         self._auto_scroll = True
         self.filter_id = None
-        self.window_id = dpg.add_window(label="日志", tag="logWindow", pos=(1000, 100), width=500, height=800)
+        self.window_id = dpg.add_window(label="日志", tag="logWindow", pos=(1300, 0), width=500, height=800,
+                                        no_close=True, no_move=True)
         self.count = 0
         self.flush_count = 1000
-        self.level_options = {"all": 0, "Trace": 1, "Debug": 2, "Info": 3, "Warning": 4, "Error": 5, "Critical": 6}
+        self.level_options = {"All": 0, "Trace": 1, "Debug": 2, "Info": 3, "Warning": 4, "Error": 5, "Critical": 6}
 
         with dpg.group(horizontal=True, parent=self.window_id):
             dpg.add_checkbox(label="自动滚动", default_value=True,
@@ -114,7 +115,7 @@ class MyCustomLogger:
 
     def set_level(self, level):
         # 过滤对应等级的日志
-        if level == self.level_options["all"]:
+        if level == self.level_options["All"]:
             dpg.set_value(self.filter_id, "")
         else:
             dpg.set_value(self.filter_id, list(self.level_options.keys())[level])
