@@ -1,13 +1,14 @@
-import copy
 import threading
 import time
 from typing import List
 
 from config.pcs_config import PcsConfig
+from config.simulation_thread import SimulationThread
 from device.modbus_server import ModbusPcsServerGUI, ModbusBmsServerGUI
 import dearpygui.dearpygui as dpg
 import random
 import csv
+from battery_view import initBatteryStackInfoView, refresh_battery_text
 
 development = False
 if development:
@@ -15,6 +16,7 @@ if development:
 else:
     import my_log
 
+simulation_thread = None
 # 隐藏控制台
 # if sys.platform == "win32":
 #     import ctypes
@@ -38,8 +40,6 @@ dpg.create_context()
 
 modbusServer = None
 
-thread = None
-stop_event = threading.Event()
 log = None
 
 
@@ -276,49 +276,40 @@ def registerTextChanged(sender, app_data, user_data):
 # 自动刷新输入寄存器
 def autoSimulation(sender, app_data, user_data):
     startModbusServer("uNF", "uNF", "uNF")
-    global stop_event
-    stop_event = threading.Event()
 
     def bmsSimulationThread(sender, app_data, user_data):
-        while not stop_event.is_set():
+        dpg.configure_item("batteryStatus", default_value="运行")
+        dpg.bind_item_theme("batteryStatus", green_bg_theme)
+        while not simulation_thread.stop_event.is_set():
             setRandomCellValues(sender, app_data, user_data)
             refreshRegisters(sender, app_data, user_data)
-            time.sleep(1)
+            refresh_battery_text(modbusServer)
+            time.sleep(0.1)
         print("bms thread stopped")
 
     def pcsSimulationThread(sender, app_data, user_data):
         count = 0
-        while not stop_event.is_set():
-            if modbusServer.pcs.isStart == 1:
-                setRandomPcsValues(sender, app_data, user_data)
+        while not simulation_thread.stop_event.is_set():
+            setRandomPcsValues(sender, app_data, user_data)
             refreshRegisters(sender, app_data, user_data)
-            time.sleep(1)
+            time.sleep(0.1)
             count += 1
-            # 设置pcs每运行五分钟关机五秒
-            if count % 300 == 0:
-                modbusServer.pcs.isStart = 0
-            elif count % 305 == 0:
-                modbusServer.pcs.isStart = 1
         print("pcs thread stopped")
 
     # 开启一个python线程每秒刷新一次
-    global thread
+    global simulation_thread
     if modbusServer.getType() == "Modbus PCS":
-        thread = threading.Thread(target=pcsSimulationThread, args=(sender, app_data, user_data))
+        simulation_thread.set_thread(threading.Thread(target=pcsSimulationThread, args=(sender, app_data, user_data)))
     else:
-        thread = threading.Thread(target=bmsSimulationThread, args=(sender, app_data, user_data))
-    thread.start()
+        simulation_thread.set_thread(threading.Thread(target=bmsSimulationThread, args=(sender, app_data, user_data)))
+    simulation_thread.start()
 
 
 # 停止自动刷新输入寄存器
 def stopAutoSimulation(sender, app_data, user_data):
     log.debug("stopRefreshRegisters")
-    global thread, stop_event
-    if thread is not None and thread.is_alive():
-        stop_event.set()
-        thread.join()
-        dpg.configure_item("configStatus", default_value="停止")
-        dpg.bind_item_theme("configStatus", red_bg_theme)
+    global simulation_thread
+    simulation_thread.stopAutoSimulation(sender, app_data, user_data, dpg, red_bg_theme)
 
 
 def randomiseOutputRegisters(sender, app_data, user_data):
@@ -452,17 +443,20 @@ def _log(sender, app_data, user_data):
 
 
 def on_modbus_type_selected(sender, data):
-    global modbusServer
+    global modbusServer, simulation_thread
     modbus_type = dpg.get_value(sender)
     if modbus_type == "Modbus PCS":
         modbusServer = ModbusPcsServerGUI()
         modbusServer.setType("Modbus PCS")
+        simulation_thread = SimulationThread()
         log.info("Modbus PCS")
         # 执行 Modbus PCS 相关逻辑
         pass
     else:
         modbusServer = ModbusBmsServerGUI()
+        modbusServer.set_cluster_data()
         modbusServer.setType("Modbus BMS")
+        simulation_thread = SimulationThread()
         log.info("Modbus BMS")
         # 执行 Modbus BMS 相关逻辑
         pass
@@ -623,8 +617,7 @@ def export_pcs_config():
 
 
 def applyConfig(sender, app_data, user_data):
-    global stop_event, pcs_config_list, thread
-    stop_event = threading.Event()
+    global pcs_config_list
 
     def get_pcs_config_list(loop_count):
         config_list = []
@@ -644,7 +637,7 @@ def applyConfig(sender, app_data, user_data):
         count = 0
         i = 0
         config_list = get_pcs_config_list(dpg.get_value("loopCount"))
-        while not stop_event.is_set():
+        while not simulation_thread.stop_event.is_set():
             if i < len(config_list):
                 if int(config_list[i].time_offset) == count:
                     modbusServer.setPcsConfig(config_list[i])
@@ -664,10 +657,10 @@ def applyConfig(sender, app_data, user_data):
 
     # 开启一个python线程每秒刷新一次
     if modbusServer.getType() == "Modbus PCS":
-        thread = threading.Thread(target=pcsApplyConfigThread, args=(sender, app_data, user_data))
-    thread.start()
+        simulation_thread.thread = threading.Thread(target=pcsApplyConfigThread, args=(sender, app_data, user_data))
+    simulation_thread.start()
 
-    if thread is not None and thread.is_alive():
+    if simulation_thread.thread is not None and simulation_thread.thread.is_alive():
         dpg.configure_item("configStatus", default_value="应用中")
         dpg.bind_item_theme("configStatus", green_bg_theme)
     else:
@@ -927,7 +920,7 @@ with dpg.window(tag="Primary Window", width=1500):
             deviceTypeGroup = dpg.add_group(horizontal=True)
             dpg.add_text("设备类型:", tag="deviceTypeText", parent=deviceTypeGroup)
             # 设置MODBUS的下拉框选项
-            modbus_combo = dpg.add_combo(("Modbus PCS", "Modbus BMS"), default_value="Modbus PCS", tag="modbusType",
+            modbus_combo = dpg.add_combo(("Modbus PCS", "Modbus BMS"), default_value="Modbus BMS", tag="modbusType",
                                          width=250,
                                          indent=300, parent=deviceTypeGroup)
             on_modbus_type_selected(modbus_combo, None)
@@ -1074,11 +1067,11 @@ with dpg.window(tag="Primary Window", width=1500):
 
             with dpg.collapsing_header(label="PCS配置", tag="pcsConfig"):
                 initPcsConfig()
-        import battery_view
-        battery_view.initBatteryStackInfoView()
+        initBatteryStackInfoView()
+        dpg.configure_item("batteryStatus", default_value="停止")
+        dpg.bind_item_theme("batteryStatus", red_bg_theme)
         # with dpg.tab(label="电池堆信息", tag="batteryStackInfo",parent="tabBar"):
         #     pass
-
 
 dpg.create_viewport(title='pyModbusServerGUI', width=1800, height=1000)
 

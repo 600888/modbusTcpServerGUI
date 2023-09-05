@@ -20,7 +20,6 @@ class Cluster:
 
     # 获取簇总电压
     def getVoltage(self):
-        voltage = 0
         return int(self.PackList[0].voltage)
 
     # 获取簇总电流
@@ -48,7 +47,13 @@ class Cluster:
 
     # 获取簇的单体最大电压
     def getMaxVoltage(self):
-        return int(max(self.PackList, key=lambda x: x.getMaxVoltage()).getMaxVoltage())
+        # 找到所有模组中的最大电压
+        max_voltage = -100000000
+        for pack in self.PackList:
+            if pack.getMaxVoltage() > max_voltage:
+                max_voltage = pack.getMaxVoltage()
+        return int(max_voltage)
+        # return int(max(self.PackList, key=lambda x: x.getMaxVoltage()).getMaxVoltage())
 
     # 获取簇的单体最小电压
     def getMinVoltage(self):
@@ -170,7 +175,13 @@ class Pack:
         return int(soc)
 
     def getMaxVoltage(self):
-        return int(max(self.CellList, key=lambda x: x.voltage).voltage)
+        # 找到所有电芯中的最大电压
+        max_voltage = -100000000
+        for cell in self.CellList:
+            if cell.voltage > max_voltage:
+                max_voltage = cell.voltage
+        return int(max_voltage)
+        # return int(max(self.CellList, key=lambda x: x.voltage).voltage)
 
     def getMinVoltage(self):
         return int(min(self.CellList, key=lambda x: x.voltage).voltage)
