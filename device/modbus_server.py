@@ -205,8 +205,25 @@ class ModbusPcsServerGUI(ModbusServerGUI):
         dataList.append(self.getDataPoint(40005, hex(40005), "运行模式", self.pcs.runMode, "1"))
 
 
+class DataPoint:
+    def __init__(self):
+        self.value = 0
+        self.cluster_id = 0
+        self.pack_id = 0
+        self.cell_id = 0
+
+    def set_value(self, value, cluster_id, pack_id, cell_id):
+        self.value = value
+        self.cluster_id = cluster_id
+        self.pack_id = pack_id
+        self.cell_id = cell_id
+
+
 class ModbusBmsServerGUI(ModbusServerGUI):
     clusterList = []
+    cluster_atoi_map = {"电池簇1": 0,
+                        "电池簇2": 1,
+                        "电池簇3": 2}
 
     def __init__(self):
         super().__init__()
@@ -214,6 +231,10 @@ class ModbusBmsServerGUI(ModbusServerGUI):
         self.cluster_list_count = 3
         self.pack_list_count = 10
         self.cell_count = 24
+        self.max_voltage_point = DataPoint()
+        self.min_voltage_point = DataPoint()
+        self.max_temperature_point = DataPoint()
+        self.min_temperature_point = DataPoint()
 
     def set_cluster_data(self):
         # 初始化三维列表
@@ -267,10 +288,10 @@ class ModbusBmsServerGUI(ModbusServerGUI):
         for cluster in self.clusterList:
             for pack in cluster.PackList:
                 for cell in pack.CellList:
-                    vol = random.randint(3000, 6000)  # 系数乘以0.01
-                    current = random.randint(1000, 2000)  # 系数乘以0.01
-                    temp = random.randint(2000, 3000)  # 系数乘以0.01
-                    soc = random.randint(8000, 9900)  # 系数乘以0.01
+                    vol = random.randint(300, 350) + random.randint(-10, 10) + random.randint(3, 8)  # 系数乘以0.01
+                    current = random.randint(100, 150) + random.randint(-10, 10) + random.randint(3, 8)  # 系数乘以0.01
+                    temp = random.randint(2000, 3000) + random.randint(-10, 10) + random.randint(3, 8)  # 系数乘以0.01
+                    soc = random.randint(8000, 9900) + random.randint(-10, 10) + random.randint(3, 8)  # 系数乘以0.01
                     cell.setValue(vol, current, temp, soc)
                     self.setSingleCellValues(cell)
                 pack.setValue()
@@ -290,25 +311,27 @@ class ModbusBmsServerGUI(ModbusServerGUI):
         self.setValueByAddress(31011, self.getAverageTemperature(), "input")
         self.setValueByAddress(31012, self.getAverageVoltage(), "input")
 
-        self.setValueByAddress(31013, self.getMaxVoltage(), "input")
-        self.setValueByAddress(31014, self.getMaxVoltageClusterId(), "input")
-        self.setValueByAddress(31015, self.getMaxVoltagePackId(), "input")
-        self.setValueByAddress(31016, self.getMaxVoltageCellId(), "input")
+        max_voltage_point, min_voltage_point, max_temperature_point, min_temperature_point = self.getDataPoint()
 
-        self.setValueByAddress(31017, self.getMinVoltage(), "input")
-        self.setValueByAddress(31018, self.getMinVoltageClusterId(), "input")
-        self.setValueByAddress(31019, self.getMinVoltagePackId(), "input")
-        self.setValueByAddress(31020, self.getMinVoltageCellId(), "input")
+        self.setValueByAddress(31013, max_voltage_point.value, "input")
+        self.setValueByAddress(31014, max_voltage_point.cluster_id, "input")
+        self.setValueByAddress(31015, max_voltage_point.pack_id, "input")
+        self.setValueByAddress(31016, max_voltage_point.cell_id, "input")
 
-        self.setValueByAddress(31021, self.getMaxTemperature(), "input")
-        self.setValueByAddress(31022, self.getMaxTemperatureClusterId(), "input")
-        self.setValueByAddress(31023, self.getMaxTemperaturePackId(), "input")
-        self.setValueByAddress(31024, self.getMaxTemperatureCellId(), "input")
+        self.setValueByAddress(31017, min_voltage_point.value, "input")
+        self.setValueByAddress(31018, min_voltage_point.cluster_id, "input")
+        self.setValueByAddress(31019, min_voltage_point.pack_id, "input")
+        self.setValueByAddress(31020, min_voltage_point.cell_id, "input")
 
-        self.setValueByAddress(31025, self.getMinTemperature(), "input")
-        self.setValueByAddress(31026, self.getMinTemperatureClusterId(), "input")
-        self.setValueByAddress(31027, self.getMinTemperaturePackId(), "input")
-        self.setValueByAddress(31028, self.getMinTemperatureCellId(), "input")
+        self.setValueByAddress(31021, max_temperature_point.value, "input")
+        self.setValueByAddress(31022, max_temperature_point.cluster_id, "input")
+        self.setValueByAddress(31023, max_temperature_point.pack_id, "input")
+        self.setValueByAddress(31024, max_temperature_point.cell_id, "input")
+
+        self.setValueByAddress(31025, min_temperature_point.value, "input")
+        self.setValueByAddress(31026, min_temperature_point.cluster_id, "input")
+        self.setValueByAddress(31027, min_temperature_point.pack_id, "input")
+        self.setValueByAddress(31028, min_temperature_point.cell_id, "input")
 
     # 获取系统总电压
     def getTotalSystemVoltage(self):
@@ -328,9 +351,13 @@ class ModbusBmsServerGUI(ModbusServerGUI):
 
     # 获取系统平均电压
     def getAverageVoltage(self):
-        return int(
-            sum([cluster.voltage for cluster in self.clusterList]) / (self.cluster_list_count * self.pack_list_count
-                                                                      * self.cell_count))
+        count = self.cluster_list_count * self.pack_list_count * self.cell_count
+        voltage = 0
+        for cluster in self.clusterList:
+            for pack in cluster.PackList:
+                for cell in pack.CellList:
+                    voltage += cell.voltage
+        return int(voltage / count)
 
     # 获取系统单体最高温度
     def getMaxTemperature(self):
@@ -475,6 +502,60 @@ class ModbusBmsServerGUI(ModbusServerGUI):
     def getMinTemperatureCellId(self):
         return int(self.getMinTemperatureIdPoint()[2])
 
+    # 获取单体最高电压、最低电压、最高温度、最低温度测点
+    def getDataPoint(self):
+        max_voltage = -100000000
+        max_voltage_cluster_id = 0
+        max_voltage_pack_id = 0
+        max_voltage_cell_id = 0
+
+        min_voltage = 100000000
+        min_voltage_cluster_id = 0
+        min_voltage_pack_id = 0
+        min_voltage_cell_id = 0
+
+        max_temperature = -100000000
+        max_temperature_cluster_id = 0
+        max_temperature_pack_id = 0
+        max_temperature_cell_id = 0
+
+        min_temperature = 100000000
+        min_temperature_cluster_id = 0
+        min_temperature_pack_id = 0
+        min_temperature_cell_id = 0
+
+        for cluster in self.clusterList:
+            for pack in cluster.PackList:
+                for cell in pack.CellList:
+                    if cell.voltage > max_voltage:
+                        max_voltage = cell.voltage
+                        max_voltage_cluster_id = cluster.cluster_id
+                        max_voltage_pack_id = pack.pack_id
+                        max_voltage_cell_id = cell.cell_id
+                    if cell.voltage < min_voltage:
+                        min_voltage = cell.voltage
+                        min_voltage_cluster_id = cluster.cluster_id
+                        min_voltage_pack_id = pack.pack_id
+                        min_voltage_cell_id = cell.cell_id
+                    if cell.temperature > max_temperature:
+                        max_temperature = cell.temperature
+                        max_temperature_cluster_id = cluster.cluster_id
+                        max_temperature_pack_id = pack.pack_id
+                        max_temperature_cell_id = cell.cell_id
+                    if cell.temperature < min_temperature:
+                        min_temperature = cell.temperature
+                        min_temperature_cluster_id = cluster.cluster_id
+                        min_temperature_pack_id = pack.pack_id
+                        min_temperature_cell_id = cell.cell_id
+
+        self.max_voltage_point.set_value(max_voltage, max_voltage_cluster_id, max_voltage_pack_id, max_voltage_cell_id)
+        self.min_voltage_point.set_value(min_voltage, min_voltage_cluster_id, min_voltage_pack_id, min_voltage_cell_id)
+        self.max_temperature_point.set_value(max_temperature, max_temperature_cluster_id, max_temperature_pack_id,
+                                             max_temperature_cell_id)
+        self.min_temperature_point.set_value(min_temperature, min_temperature_cluster_id, min_temperature_pack_id,
+                                             min_temperature_cell_id)
+        return [self.max_voltage_point, self.min_voltage_point, self.max_temperature_point, self.min_temperature_point]
+
     @staticmethod
     def getSystemDataPoint(address, hex_address, name, value, unit):
         point = [address, hex_address, name, value, unit]
@@ -497,41 +578,46 @@ class ModbusBmsServerGUI(ModbusServerGUI):
             self.getSystemDataPoint(31011, hex(31011), "系统平均温度", self.getAverageTemperature(), "0.01"))
         dataList.append(self.getSystemDataPoint(31012, hex(31012), "系统平均电压", self.getAverageVoltage(), "0.01"))
 
+        max_voltage_point, min_voltage_point, max_temperature_point, min_temperature_point = self.getDataPoint()
+
         # 单体最高电压
-        dataList.append(self.getSystemDataPoint(31013, hex(31013), "系统单体最高电压", self.getMaxVoltage(), "0.01"))
         dataList.append(
-            self.getSystemDataPoint(31014, hex(31014), "系统单体最高电压簇号", self.getMaxVoltageClusterId(), "1"))
+            self.getSystemDataPoint(31013, hex(31013), "系统单体最高电压", max_voltage_point.value, "0.01"))
         dataList.append(
-            self.getSystemDataPoint(31015, hex(31015), "系统单体最高电压模组号", self.getMaxVoltagePackId(), "1"))
+            self.getSystemDataPoint(31014, hex(31014), "系统单体最高电压簇号", max_voltage_point.cluster_id, "1"))
         dataList.append(
-            self.getSystemDataPoint(31016, hex(31016), "系统单体最高电压电芯号", self.getMaxVoltageCellId(), "1"))
+            self.getSystemDataPoint(31015, hex(31015), "系统单体最高电压模组号", max_voltage_point.pack_id, "1"))
+        dataList.append(
+            self.getSystemDataPoint(31016, hex(31016), "系统单体最高电压电芯号", max_voltage_point.cell_id, "1"))
 
         # 单体最低电压
-        dataList.append(self.getSystemDataPoint(31017, hex(31017), "系统单体最低电压", self.getMinVoltage(), "0.01"))
+        dataList.append(self.getSystemDataPoint(31017, hex(31017), "系统单体最低电压", min_voltage_point.value, "0.01"))
         dataList.append(
-            self.getSystemDataPoint(31018, hex(31018), "系统单体最低电压簇号", self.getMinVoltageClusterId(), "1"))
+            self.getSystemDataPoint(31018, hex(31018), "系统单体最低电压簇号", min_voltage_point.cluster_id, "1"))
         dataList.append(
-            self.getSystemDataPoint(31019, hex(31019), "系统单体最低电压模组号", self.getMinVoltagePackId(), "1"))
+            self.getSystemDataPoint(31019, hex(31019), "系统单体最低电压模组号", min_voltage_point.pack_id, "1"))
         dataList.append(
-            self.getSystemDataPoint(31020, hex(31020), "系统单体最低电压电芯号", self.getMinVoltageCellId(), "1"))
+            self.getSystemDataPoint(31020, hex(31020), "系统单体最低电压电芯号", min_voltage_point.cell_id, "1"))
 
         # 单体最高温度
-        dataList.append(self.getSystemDataPoint(31021, hex(31021), "系统单体最高温度", self.getMaxTemperature(), "0.01"))
         dataList.append(
-            self.getSystemDataPoint(31022, hex(31022), "系统单体最高温度簇号", self.getMaxTemperatureClusterId(), "1"))
+            self.getSystemDataPoint(31021, hex(31021), "系统单体最高温度", max_temperature_point.value, "0.01"))
         dataList.append(
-            self.getSystemDataPoint(31023, hex(31023), "系统单体最高温度模组号", self.getMaxTemperaturePackId(), "1"))
+            self.getSystemDataPoint(31022, hex(31022), "系统单体最高温度簇号", max_temperature_point.cluster_id, "1"))
         dataList.append(
-            self.getSystemDataPoint(31024, hex(31024), "系统单体最高温度电芯号", self.getMaxTemperatureCellId(), "1"))
+            self.getSystemDataPoint(31023, hex(31023), "系统单体最高温度模组号", max_temperature_point.pack_id, "1"))
+        dataList.append(
+            self.getSystemDataPoint(31024, hex(31024), "系统单体最高温度电芯号", max_temperature_point.cell_id, "1"))
 
         # 单体最低温度
-        dataList.append(self.getSystemDataPoint(31025, hex(31025), "系统单体最低温度", self.getMinTemperature(), "0.01"))
         dataList.append(
-            self.getSystemDataPoint(31026, hex(31026), "系统单体最低温度簇号", self.getMinTemperatureClusterId(), "1"))
+            self.getSystemDataPoint(31025, hex(31025), "系统单体最低温度", min_temperature_point.value, "0.01"))
         dataList.append(
-            self.getSystemDataPoint(31027, hex(31027), "系统单体最低温度模组号", self.getMinTemperaturePackId(), "1"))
+            self.getSystemDataPoint(31026, hex(31026), "系统单体最低温度簇号", min_temperature_point.cluster_id, "1"))
         dataList.append(
-            self.getSystemDataPoint(31028, hex(31028), "系统单体最低温度电芯号", self.getMinTemperatureCellId(), "1"))
+            self.getSystemDataPoint(31027, hex(31027), "系统单体最低温度模组号", min_temperature_point.pack_id, "1"))
+        dataList.append(
+            self.getSystemDataPoint(31028, hex(31028), "系统单体最低温度电芯号", min_temperature_point.cell_id, "1"))
 
     # 根据电芯导出数据点
     def exportCellDataPointByCell(self, dataList):

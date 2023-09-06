@@ -1,6 +1,18 @@
 from dataclasses import dataclass
 
 
+class DataPoint:
+    def __init__(self):
+        self.value = 0
+        self.pack_id = 0
+        self.cell_id = 0
+
+    def set_value(self, value, pack_id, cell_id):
+        self.value = value
+        self.pack_id = pack_id
+        self.cell_id = cell_id
+
+
 @dataclass
 class Cluster:
     cluster_id = 0
@@ -18,9 +30,26 @@ class Cluster:
     temperature_address = 0
     soc_address = 0
 
+    def __init__(self):
+        self.max_voltage_point = DataPoint()
+        self.min_voltage_point = DataPoint()
+        self.max_temperature_point = DataPoint()
+        self.min_temperature_point = DataPoint()
+
     # 获取簇总电压
     def getVoltage(self):
-        return int(self.PackList[0].voltage)
+        return sum([pack.voltage for pack in self.PackList])
+        # return int(self.PackList[0].voltage)
+
+    # 获取簇平均电压
+    def getAverageVoltage(self):
+        voltage = 0
+        for pack in self.PackList:
+            for cell in pack.CellList:
+                voltage += cell.voltage
+        count = len(self.PackList) * len(self.PackList[0].CellList)
+        voltage = voltage / count
+        return int(voltage)
 
     # 获取簇总电流
     def getCurrent(self):
@@ -89,6 +118,49 @@ class Cluster:
         # 每个模组的最小soc的最小值
         return int(min(self.PackList, key=lambda x: x.getMinSoc()).getMinSoc())
 
+    # 获取最大电压测点
+    def getDataPoint(self):
+        max_voltage = -100000000
+        max_voltage_pack_id = 0
+        max_voltage_cell_id = 0
+
+        min_voltage = 100000000
+        min_voltage_pack_id = 0
+        min_voltage_cell_id = 0
+
+        max_temperature = -100000000
+        max_temperature_pack_id = 0
+        max_temperature_cell_id = 0
+
+        min_temperature = 100000000
+        min_temperature_pack_id = 0
+        min_temperature_cell_id = 0
+
+        for pack in self.PackList:
+            for cell in pack.CellList:
+                if cell.voltage > max_voltage:
+                    max_voltage = cell.voltage
+                    max_voltage_pack_id = pack.pack_id
+                    max_voltage_cell_id = cell.cell_id
+                if cell.voltage < min_voltage:
+                    min_voltage = cell.voltage
+                    min_voltage_pack_id = pack.pack_id
+                    min_voltage_cell_id = cell.cell_id
+                if cell.temperature > max_temperature:
+                    max_temperature = cell.temperature
+                    max_temperature_pack_id = pack.pack_id
+                    max_temperature_cell_id = cell.cell_id
+                if cell.temperature < min_temperature:
+                    min_temperature = cell.temperature
+                    min_temperature_pack_id = pack.pack_id
+                    min_temperature_cell_id = cell.cell_id
+
+        self.max_voltage_point.set_value(max_voltage, max_voltage_pack_id, max_voltage_cell_id)
+        self.min_voltage_point.set_value(min_voltage, min_voltage_pack_id, min_voltage_cell_id)
+        self.max_temperature_point.set_value(max_temperature, max_temperature_pack_id, max_temperature_cell_id)
+        self.min_temperature_point.set_value(min_temperature, min_temperature_pack_id, min_temperature_cell_id)
+        return [self.max_voltage_point, self.min_voltage_point, self.max_temperature_point, self.min_temperature_point]
+
     def setValue(self):
         self.voltage = self.getVoltage()
         self.current = self.getCurrent()
@@ -130,8 +202,8 @@ class Pack:
     soc_address = 0
 
     # 串并联数量，几串几并
-    series = 0
-    parallel = 0
+    series = 24
+    parallel = 1
 
     def setSeriesParallel(self, series, parallel):
         self.series = series
@@ -144,8 +216,9 @@ class Pack:
             for cell in self.CellList:
                 voltage += cell.voltage
         else:
-            for cell in len(self.CellList) / self.parallel:
-                voltage += cell.voltage
+            count = int(len(self.CellList) / self.parallel)
+            for i in range(0, count):
+                voltage += self.CellList[i].voltage
         return int(voltage)
 
     def getCurrent(self):
@@ -154,8 +227,9 @@ class Pack:
         if self.series == 0:
             return self.CellList[0].current
         else:
-            for cell in len(self.CellList) / self.series:
-                current += cell.current
+            count = int(len(self.CellList) / self.series)
+            for i in range(0, count):
+                current += self.CellList[i].current
         return int(current)
 
     def getTemperature(self):

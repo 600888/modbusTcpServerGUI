@@ -9,7 +9,7 @@ class MyCustomLogger:
         self._auto_scroll = True
         self.filter_id = None
         self.window_id = dpg.add_window(label="日志", tag="logWindow", pos=(1300, 0), width=500, height=800,
-                                        no_close=True, no_move=True)
+                                        no_close=True, no_move=True, collapsed=True)
         self.count = 0
         self.flush_count = 1000
         self.level_options = {"All": 0, "Trace": 1, "Debug": 2, "Info": 3, "Warning": 4, "Error": 5, "Critical": 6}

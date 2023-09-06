@@ -1,7 +1,6 @@
 import random
 
 import dearpygui.dearpygui as dpg
-import dearpygui.experimental as dpgex
 
 stock_datax = []
 stock_datay = []
@@ -13,8 +12,8 @@ stock_data3 = []
 def refresh_battery_text(modbus_server):
     dpg.configure_item("systemVoltage", default_value="%.1fV" % (modbus_server.getTotalSystemVoltage() * 0.01))
     dpg.configure_item("systemCurrent", default_value="%.1fA" % (modbus_server.getTotalSystemCurrent() * 0.01))
-    dpg.configure_item("systemSOC", default_value="%.1f%%" % (modbus_server.getSystemSoc() * 0.01))
-    dpg.configure_item("systemSOH", default_value="%.1f%%" % (modbus_server.getSystemSoc() * 0.01))
+    dpg.configure_item("systemSOC", default_value="%.2f%%" % (modbus_server.getSystemSoc() * 0.01))
+    dpg.configure_item("systemSOH", default_value="%.2f%%" % (modbus_server.getSystemSoc() * 0.01))
     dpg.configure_item("chargeableCapacity", default_value="%.1fkWh" % (random.random() * 100))
     dpg.configure_item("dischargeableCapacity", default_value="%.1fkWh" % (random.random() * 100))
     dpg.configure_item("maxChargeableCurrent", default_value="%.1fA" % (random.random() * 100.0))
@@ -23,29 +22,31 @@ def refresh_battery_text(modbus_server):
                        default_value="%.1fA" % (modbus_server.getCurrentDifference() * 0.01))
     dpg.configure_item("clusterVoltageDifference",
                        default_value="%.1fV" % (modbus_server.getVoltageDifference() * 0.01))
-    dpg.configure_item("singleVoltageAverage", default_value="%.1fV" % (modbus_server.getAverageVoltage() * 0.01))
+    dpg.configure_item("singleVoltageAverage", default_value="%.3fV" % (modbus_server.getAverageVoltage() * 0.01))
     dpg.configure_item("singleTemperatureAverage",
                        default_value="%.1f摄氏度" % (modbus_server.getAverageTemperature() * 0.01))
 
-    dpg.configure_item("singleMaxVoltage", default_value="%.1fV" % (modbus_server.getMaxVoltage() * 0.01))
-    dpg.configure_item("singleMaxVoltageCluster", default_value="%d" % (modbus_server.getMaxVoltageClusterId()))
-    dpg.configure_item("singleMaxVoltageModule", default_value="%d" % (modbus_server.getMaxVoltagePackId()))
-    dpg.configure_item("singleMaxVoltageCell", default_value="%d" % (modbus_server.getMaxVoltageCellId()))
+    max_volatage_point, min_voltage_point, max_temperature_point, min_temperature_point = modbus_server.getDataPoint()
 
-    dpg.configure_item("singleMinVoltage", default_value="%.1fV" % (modbus_server.getMinVoltage() * 0.01))
-    dpg.configure_item("singleMinVoltageCluster", default_value="%d" % (modbus_server.getMinVoltageClusterId()))
-    dpg.configure_item("singleMinVoltageModule", default_value="%d" % (modbus_server.getMinVoltagePackId()))
-    dpg.configure_item("singleMinVoltageCell", default_value="%d" % (modbus_server.getMinVoltageCellId()))
+    dpg.configure_item("singleMaxVoltage", default_value="%.3fV" % (max_volatage_point.value * 0.01))
+    dpg.configure_item("singleMaxVoltageCluster", default_value="%d" % max_volatage_point.cluster_id)
+    dpg.configure_item("singleMaxVoltageModule", default_value="%d" % max_volatage_point.pack_id)
+    dpg.configure_item("singleMaxVoltageCell", default_value="%d" % max_volatage_point.cell_id)
 
-    dpg.configure_item("singleMaxTemperature", default_value="%.1f摄氏度" % (modbus_server.getMaxTemperature() * 0.01))
-    dpg.configure_item("singleMaxTemperatureCluster", default_value="%d" % (modbus_server.getMaxTemperatureClusterId()))
-    dpg.configure_item("singleMaxTemperatureModule", default_value="%d" % (modbus_server.getMaxTemperaturePackId()))
-    dpg.configure_item("singleMaxTemperatureCell", default_value="%d" % (modbus_server.getMaxTemperatureCellId()))
+    dpg.configure_item("singleMinVoltage", default_value="%.3fV" % (min_voltage_point.value * 0.01))
+    dpg.configure_item("singleMinVoltageCluster", default_value="%d" % min_voltage_point.cluster_id)
+    dpg.configure_item("singleMinVoltageModule", default_value="%d" % min_voltage_point.pack_id)
+    dpg.configure_item("singleMinVoltageCell", default_value="%d" % min_voltage_point.cell_id)
 
-    dpg.configure_item("singleMinTemperature", default_value="%.1f摄氏度" % (modbus_server.getMinTemperature() * 0.01))
-    dpg.configure_item("singleMinTemperatureCluster", default_value="%d" % (modbus_server.getMinTemperatureClusterId()))
-    dpg.configure_item("singleMinTemperatureModule", default_value="%d" % (modbus_server.getMinTemperaturePackId()))
-    dpg.configure_item("singleMinTemperatureCell", default_value="%d" % (modbus_server.getMinTemperatureCellId()))
+    dpg.configure_item("singleMaxTemperature", default_value="%.1f摄氏度" % (max_temperature_point.value * 0.01))
+    dpg.configure_item("singleMaxTemperatureCluster", default_value="%d" % max_temperature_point.cluster_id)
+    dpg.configure_item("singleMaxTemperatureModule", default_value="%d" % max_temperature_point.pack_id)
+    dpg.configure_item("singleMaxTemperatureCell", default_value="%d" % max_temperature_point.cell_id)
+
+    dpg.configure_item("singleMinTemperature", default_value="%.1f摄氏度" % (min_temperature_point.value * 0.01))
+    dpg.configure_item("singleMinTemperatureCluster", default_value="%d" % min_temperature_point.cluster_id)
+    dpg.configure_item("singleMinTemperatureModule", default_value="%d" % min_temperature_point.pack_id)
+    dpg.configure_item("singleMinTemperatureCell", default_value="%d" % min_temperature_point.cell_id)
 
     stock_datax.append(stock_datax[-1] + 1)
     stock_data1.append(int(modbus_server.getTotalSystemVoltage() * 0.01))
@@ -55,9 +56,6 @@ def refresh_battery_text(modbus_server):
     if len(stock_datax) > 100:
         for i in range(10):
             stock_datax.pop(0)
-            stock_data1.pop(0)
-            stock_data2.pop(0)
-            stock_data3.pop(0)
 
     # 向曲线里动态添加数据
     dpg.configure_item("series1", x=stock_datax, y=stock_data1)
@@ -72,11 +70,13 @@ def refresh_plot():
     pass
 
 
-def initBatteryStackInfoView():
+def initBatteryStackInfoView(red_bg_theme):
     with dpg.tab(label="电池堆信息", tag="batteryStackInfo", parent="tabBar"):
         with dpg.group(horizontal=True):
             dpg.add_text("状态标志：")
             dpg.add_input_text(default_value="运行", width=80, readonly=True, tag="batteryStatus")
+            dpg.configure_item("batteryStatus", default_value="停止")
+            dpg.bind_item_theme("batteryStatus", red_bg_theme)
         dpg.add_separator()
         dpg.add_text("电池堆信息")
         input_text_indent = 180
@@ -194,7 +194,7 @@ def initBatteryStackInfoView():
             # 30分钟总电压、总电流、SOC实时曲线
             with dpg.plot(label="30分钟总电压、总电流、SOC实时曲线", width=-1, height=-1, crosshairs=True, tag="my_plot"):
                 dpg.add_plot_legend()
-                dpg.add_plot_axis(dpg.mvXAxis,tag="x_axis")
+                dpg.add_plot_axis(dpg.mvXAxis, tag="x_axis")
                 with dpg.plot_axis(dpg.mvYAxis):
                     dpg.add_line_series(x=stock_datax, y=stock_data1, label="总电压", tag="series1",
                                         parent="30分钟总电压、总电流、SOC实时曲线")

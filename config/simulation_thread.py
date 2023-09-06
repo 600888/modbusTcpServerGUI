@@ -1,9 +1,16 @@
 import threading
 
+
 class SimulationThread:
     def __init__(self):
         self.stop_event = threading.Event()
         self.thread = None
+
+    def is_alive(self):
+        if self.thread is not None:
+            return self.thread.is_alive()
+        else:
+            return False
 
     def set_thread(self, thread):
         self.thread = thread

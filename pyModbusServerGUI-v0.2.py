@@ -8,7 +8,8 @@ from device.modbus_server import ModbusPcsServerGUI, ModbusBmsServerGUI
 import dearpygui.dearpygui as dpg
 import random
 import csv
-from battery_view import initBatteryStackInfoView, refresh_battery_text
+from view.battery_stack_view import initBatteryStackInfoView, refresh_battery_text
+from view.battery_cluster_view import initBatteryClusterInfoView, refresh_battery_cluster_text
 
 development = False
 if development:
@@ -284,6 +285,7 @@ def autoSimulation(sender, app_data, user_data):
             setRandomCellValues(sender, app_data, user_data)
             refreshRegisters(sender, app_data, user_data)
             refresh_battery_text(modbusServer)
+            refresh_battery_cluster_text(modbusServer)
             time.sleep(0.1)
         print("bms thread stopped")
 
@@ -617,6 +619,14 @@ def export_pcs_config():
 
 
 def applyConfig(sender, app_data, user_data):
+    # 如果服务没开启，弹窗警告
+    if modbusServer is None or not modbusServer.checkRunning() or modbusServer.getType() != "Modbus PCS":
+        with dpg.window(label="错误", tag="error", autosize=True, pos=[500, 400]):
+            dpg.add_text("Modbus PCS 服务未开启")
+            dpg.add_button(label="OK", callback=lambda: dpg.delete_item("error"))
+        log.info("Modbus PCS 服务未开启")
+        return
+
     global pcs_config_list
 
     def get_pcs_config_list(loop_count):
@@ -759,8 +769,7 @@ def updateConfig(pcs_config_id, time_offset, server_status, run_mode, voltage, c
 
 
 def setPcsConfigWindow(pcs_label, window, method):
-    global thread
-    if thread is not None and thread.is_alive():
+    if simulation_thread is not None and simulation_thread.is_alive():
         # 弹窗警告
         with dpg.window(label="警告", modal=True, show=False, no_close=True, tag="warningWindow", pos=[500, 300]):
             dpg.add_text("请先停止应用配置！")
@@ -847,8 +856,7 @@ def updateConfigWindow():
 
 
 def deleteConfig():
-    global thread
-    if thread is not None and thread.is_alive():
+    if simulation_thread is not None and simulation_thread.is_alive():
         # 弹窗警告
         with dpg.window(label="警告", modal=True, show=False, no_close=True, tag="warningWindow", pos=[500, 300]):
             dpg.add_text("请先停止应用配置！")
@@ -1067,11 +1075,8 @@ with dpg.window(tag="Primary Window", width=1500):
 
             with dpg.collapsing_header(label="PCS配置", tag="pcsConfig"):
                 initPcsConfig()
-        initBatteryStackInfoView()
-        dpg.configure_item("batteryStatus", default_value="停止")
-        dpg.bind_item_theme("batteryStatus", red_bg_theme)
-        # with dpg.tab(label="电池堆信息", tag="batteryStackInfo",parent="tabBar"):
-        #     pass
+        initBatteryStackInfoView(red_bg_theme)
+        initBatteryClusterInfoView(red_bg_theme)
 
 dpg.create_viewport(title='pyModbusServerGUI', width=1800, height=1000)
 
