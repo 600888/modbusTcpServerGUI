@@ -13,6 +13,7 @@ stock_data4 = []
 stock_data5 = []
 stock_data6 = []
 
+my_modbus_server = None
 
 def refresh_battery_cluster_text(modbus_server):
     cluster_str = dpg.get_value("cluster_combo")
@@ -66,9 +67,11 @@ def refresh_battery_cluster_text(modbus_server):
     stock_data2.append(min_voltage_point.value * 0.01)
     stock_data3.append(modbus_server.clusterList[cluster_id].getAverageVoltage() * 0.01)
 
-    if len(stock_voltage_datax) > 100:
-        for i in range(10):
-            stock_voltage_datax.pop(0)
+    while len(stock_voltage_datax) > 100:
+        stock_voltage_datax.pop(0)
+        stock_data1.pop(0)
+        stock_data2.pop(0)
+        stock_data3.pop(0)
 
     # 向曲线里动态添加数据
     dpg.configure_item("cluster_max_voltage_series", x=stock_voltage_datax, y=stock_data1)
@@ -82,24 +85,36 @@ def refresh_battery_cluster_text(modbus_server):
     stock_data5.append(min_temperature_point.value * 0.01)
     stock_data6.append(modbus_server.clusterList[cluster_id].getTemperature() * 0.01)
 
-    dpg.configure_item("cluster_max_temperature_series",x=stock_temperature_datax,y=stock_data4)
+    dpg.configure_item("cluster_max_temperature_series", x=stock_temperature_datax, y=stock_data4)
     dpg.configure_item("cluster_min_temperature_series", x=stock_temperature_datax, y=stock_data5)
     dpg.configure_item("cluster_average_temperature_series", x=stock_temperature_datax, y=stock_data6)
 
-    if len(stock_temperature_datax) > 100:
-        for i in range(10):
-            stock_temperature_datax.pop(0)
+    while len(stock_temperature_datax) > 100:
+        stock_temperature_datax.pop(0)
+        stock_data4.pop(0)
+        stock_data5.pop(0)
+        stock_data6.pop(0)
 
     dpg.set_axis_limits("cluster_temperature_x_axis", stock_voltage_datax[0], stock_voltage_datax[-1] + 1)
 
 
-def initBatteryClusterInfoView(red_by_theme):
+def set_cluster_combo_callback(sender):
+    dpg.set_value(sender, value=dpg.get_value(sender))
+    global my_modbus_server
+    refresh_battery_cluster_text(my_modbus_server)
+
+
+def initBatteryClusterInfoView(red_by_theme, modbus_server):
+    global my_modbus_server
+    my_modbus_server = modbus_server
     with dpg.tab(label="电池簇信息", tag="batteryClusterInfo", parent="tabBar"):
         dpg.add_spacer(height=5)
         with dpg.group(horizontal=True):
             dpg.add_text("电池簇：")
-            dpg.add_combo(items=["电池簇1", "电池簇2", "电池簇3"], width=150, default_value="电池簇1",
-                          tag="cluster_combo")
+            cluster_combo = dpg.add_combo(items=["电池簇1", "电池簇2", "电池簇3"], width=150, default_value="电池簇1",
+                                          tag="cluster_combo")
+            dpg.set_item_callback(cluster_combo, set_cluster_combo_callback)
+
         dpg.add_spacer(height=5)
         dpg.add_separator()
         dpg.add_spacer(height=5)

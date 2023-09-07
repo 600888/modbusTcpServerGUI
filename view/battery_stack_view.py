@@ -53,9 +53,11 @@ def refresh_battery_text(modbus_server):
     stock_data2.append(int(modbus_server.getTotalSystemCurrent() * 0.01))
     stock_data3.append(int(modbus_server.getSystemSoc() * 0.01))
 
-    if len(stock_datax) > 100:
-        for i in range(10):
-            stock_datax.pop(0)
+    while len(stock_datax) > 100:
+        stock_datax.pop(0)
+        stock_data1.pop(0)
+        stock_data2.pop(0)
+        stock_data3.pop(0)
 
     # 向曲线里动态添加数据
     dpg.configure_item("series1", x=stock_datax, y=stock_data1)
@@ -174,25 +176,29 @@ def initBatteryStackInfoView(red_bg_theme):
         with dpg.child_window(autosize_x=True, autosize_y=True):
             with dpg.theme(tag="series_theme1"):
                 with dpg.theme_component(0):
-                    dpg.add_theme_color(dpg.mvPlotCol_Line, (0, 0, 255), category=dpg.mvThemeCat_Plots)
-                    dpg.add_theme_color(dpg.mvPlotCol_Fill, (0, 0, 255, 64), category=dpg.mvThemeCat_Plots)
+                    dpg.add_theme_color(dpg.mvPlotCol_Line, (0, 0, 255, 255), category=dpg.mvThemeCat_Plots)
+                    dpg.add_theme_color(dpg.mvPlotCol_Fill, (0, 0, 255, 255), category=dpg.mvThemeCat_Plots)
+                    dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerSize, 10, category=dpg.mvThemeCat_Plots)
+                with dpg.theme_component(dpg.mvLineSeries):
+                    dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerSize, 10, category=dpg.mvThemeCat_Plots)
 
             with dpg.theme(tag="series_theme2"):
                 with dpg.theme_component(0):
-                    dpg.add_theme_color(dpg.mvPlotCol_Line, (255, 0, 0), category=dpg.mvThemeCat_Plots)
-                    dpg.add_theme_color(dpg.mvPlotCol_Fill, (255, 0, 0, 64), category=dpg.mvThemeCat_Plots)
+                    dpg.add_theme_color(dpg.mvPlotCol_Line, (255, 0, 0, 255), category=dpg.mvThemeCat_Plots)
+                    dpg.add_theme_color(dpg.mvPlotCol_Fill, (255, 0, 0, 255), category=dpg.mvThemeCat_Plots)
 
             with dpg.theme(tag="series_theme3"):
                 with dpg.theme_component(0):
-                    dpg.add_theme_color(dpg.mvPlotCol_Line, (0, 255, 0), category=dpg.mvThemeCat_Plots)
-                    dpg.add_theme_color(dpg.mvPlotCol_Fill, (0, 255, 0, 64), category=dpg.mvThemeCat_Plots)
+                    dpg.add_theme_color(dpg.mvPlotCol_Line, (0, 255, 0, 255), category=dpg.mvThemeCat_Plots)
+                    dpg.add_theme_color(dpg.mvPlotCol_Fill, (0, 255, 0, 255), category=dpg.mvThemeCat_Plots)
 
             stock_datax.append(0)
             stock_data1.append(0)
             stock_data2.append(0)
             stock_data3.append(0)
             # 30分钟总电压、总电流、SOC实时曲线
-            with dpg.plot(label="30分钟总电压、总电流、SOC实时曲线", width=-1, height=-1, crosshairs=True, tag="my_plot"):
+            with dpg.plot(label="30分钟总电压、总电流、SOC实时曲线", width=-1, height=-1, crosshairs=True,
+                          anti_aliased=True, use_24hour_clock=True, tag="my_plot"):
                 dpg.add_plot_legend()
                 dpg.add_plot_axis(dpg.mvXAxis, tag="x_axis")
                 with dpg.plot_axis(dpg.mvYAxis):

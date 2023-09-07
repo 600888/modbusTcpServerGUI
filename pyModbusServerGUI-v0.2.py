@@ -300,6 +300,8 @@ def autoSimulation(sender, app_data, user_data):
 
     # 开启一个python线程每秒刷新一次
     global simulation_thread
+    simulation_thread.stop_event.clear()
+    simulation_thread.thread = None
     if modbusServer.getType() == "Modbus PCS":
         simulation_thread.set_thread(threading.Thread(target=pcsSimulationThread, args=(sender, app_data, user_data)))
     else:
@@ -958,6 +960,9 @@ with dpg.window(tag="Primary Window", width=1500):
                                tag="randomiseAllCellButton")
                 dpg.add_button(label="随机设置所有PCS值", callback=setRandomPcsValues,
                                tag="randomiseAllPcsValuesButton")
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="自动模拟", callback=autoSimulation, tag="autoSimulationButton")
+                dpg.add_button(label="停止模拟", callback=stopAutoSimulation, tag="stopRefreshRegistersButton")
 
                 # 导出CSV文件
                 dpg.add_button(label="导出CSV文件", callback=export_csv, tag="exportCSVButton")
@@ -1011,8 +1016,6 @@ with dpg.window(tag="Primary Window", width=1500):
                                    tag="randomiseRegistersButton")
                     dpg.add_button(label="清空输入寄存器值", callback=clearRegisters, tag="clearRegistersButton")
                     dpg.add_button(label="刷新", callback=refreshRegisters, tag="refreshRegistersButton")
-                    dpg.add_button(label="自动模拟", callback=autoSimulation, tag="autoSimulationButton")
-                    dpg.add_button(label="停止模拟", callback=stopAutoSimulation, tag="stopRefreshRegistersButton")
                 with dpg.child_window(autosize_x=True, horizontal_scrollbar=True) as _register_child_window:
                     # grid allowing entry of values 1-MAXREGISTERS
 
@@ -1076,7 +1079,7 @@ with dpg.window(tag="Primary Window", width=1500):
             with dpg.collapsing_header(label="PCS配置", tag="pcsConfig"):
                 initPcsConfig()
         initBatteryStackInfoView(red_bg_theme)
-        initBatteryClusterInfoView(red_bg_theme)
+        initBatteryClusterInfoView(red_bg_theme, modbus_server=modbusServer)
 
 dpg.create_viewport(title='pyModbusServerGUI', width=1800, height=1000)
 
