@@ -2,18 +2,35 @@ import random
 
 import dearpygui.dearpygui as dpg
 
-stock_voltage_datax = []
-stock_datay = []
-stock_data1 = []
-stock_data2 = []
-stock_data3 = []
-
-stock_temperature_datax = []
-stock_data4 = []
-stock_data5 = []
-stock_data6 = []
-
 my_modbus_server = None
+
+
+class StockData:
+    def __init__(self):
+        self.cluster_id = 0
+        self.x = []
+        self.max_value = []
+        self.min_value = []
+        self.average_value = []
+
+    def add(self, x_value, max_value, min_value, average_value):
+        self.x.append(x_value)
+        self.max_value.append(max_value)
+        self.min_value.append(min_value)
+        self.average_value.append(average_value)
+
+
+stock_voltage = []
+stock_temperature = []
+for i in range(3):
+    voltage = StockData()
+    voltage.add(0, 0, 0, 0)
+    stock_voltage.append(voltage)
+
+    temperature = StockData()
+    temperature.add(0, 0, 0, 0)
+    stock_temperature.append(temperature)
+
 
 def refresh_battery_cluster_text(modbus_server):
     cluster_str = dpg.get_value("cluster_combo")
@@ -62,40 +79,49 @@ def refresh_battery_cluster_text(modbus_server):
     dpg.configure_item("singleClusterMinTemperatureCell",
                        default_value="%d" % min_temperature_point.cell_id)
 
-    stock_voltage_datax.append(stock_voltage_datax[-1] + 1)
-    stock_data1.append(max_voltage_point.value * 0.01)
-    stock_data2.append(min_voltage_point.value * 0.01)
-    stock_data3.append(modbus_server.clusterList[cluster_id].getAverageVoltage() * 0.01)
+    if modbus_server.simulation_thread is not None and modbus_server.simulation_thread.is_alive():
+        for i in range(3):
+            stock_voltage[i].x.append(stock_voltage[i].x[-1] + 1)
+            stock_voltage[i].max_value.append(max_voltage_point.value * 0.01)
+            stock_voltage[i].min_value.append(min_voltage_point.value * 0.01)
+            stock_voltage[i].average_value.append(modbus_server.clusterList[i].getAverageVoltage() * 0.01)
 
-    while len(stock_voltage_datax) > 100:
-        stock_voltage_datax.pop(0)
-        stock_data1.pop(0)
-        stock_data2.pop(0)
-        stock_data3.pop(0)
+            while len(stock_voltage[i].x) > 100:
+                stock_voltage[i].x.pop(0)
+                stock_voltage[i].max_value.pop(0)
+                stock_voltage[i].min_value.pop(0)
+                stock_voltage[i].average_value.pop(0)
 
-    # 向曲线里动态添加数据
-    dpg.configure_item("cluster_max_voltage_series", x=stock_voltage_datax, y=stock_data1)
-    dpg.configure_item("cluster_min_voltage_series", x=stock_voltage_datax, y=stock_data2)
-    dpg.configure_item("cluster_average_voltage_series", x=stock_voltage_datax, y=stock_data3)
+            stock_temperature[i].x.append(stock_temperature[cluster_id].x[-1] + 1)
+            stock_temperature[i].max_value.append(max_temperature_point.value * 0.01)
+            stock_temperature[i].min_value.append(min_temperature_point.value * 0.01)
+            stock_temperature[i].average_value.append(
+                modbus_server.clusterList[i].getTemperature() * 0.01)
 
-    dpg.set_axis_limits("cluster_voltage_x_axis", stock_voltage_datax[0], stock_voltage_datax[-1] + 1)
+            while len(stock_temperature[i].x) > 100:
+                stock_temperature[i].x.pop(0)
+                stock_temperature[i].max_value.pop(0)
+                stock_temperature[i].min_value.pop(0)
+                stock_temperature[i].average_value.pop(0)
 
-    stock_temperature_datax.append(stock_temperature_datax[-1] + 1)
-    stock_data4.append(max_temperature_point.value * 0.01)
-    stock_data5.append(min_temperature_point.value * 0.01)
-    stock_data6.append(modbus_server.clusterList[cluster_id].getTemperature() * 0.01)
+    dpg.configure_item("cluster_max_voltage_series", x=stock_voltage[cluster_id].x,
+                       y=stock_voltage[cluster_id].max_value)
+    dpg.configure_item("cluster_min_voltage_series", x=stock_voltage[cluster_id].x,
+                       y=stock_voltage[cluster_id].min_value)
+    dpg.configure_item("cluster_average_voltage_series", x=stock_voltage[cluster_id].x,
+                       y=stock_voltage[cluster_id].average_value)
 
-    dpg.configure_item("cluster_max_temperature_series", x=stock_temperature_datax, y=stock_data4)
-    dpg.configure_item("cluster_min_temperature_series", x=stock_temperature_datax, y=stock_data5)
-    dpg.configure_item("cluster_average_temperature_series", x=stock_temperature_datax, y=stock_data6)
+    dpg.set_axis_limits("cluster_voltage_x_axis", stock_voltage[cluster_id].x[0], stock_voltage[cluster_id].x[-1] + 1)
 
-    while len(stock_temperature_datax) > 100:
-        stock_temperature_datax.pop(0)
-        stock_data4.pop(0)
-        stock_data5.pop(0)
-        stock_data6.pop(0)
+    dpg.configure_item("cluster_max_temperature_series", x=stock_temperature[cluster_id].x,
+                       y=stock_temperature[cluster_id].max_value)
+    dpg.configure_item("cluster_min_temperature_series", x=stock_temperature[cluster_id].x,
+                       y=stock_temperature[cluster_id].min_value)
+    dpg.configure_item("cluster_average_temperature_series", x=stock_temperature[cluster_id].x,
+                       y=stock_temperature[cluster_id].average_value)
 
-    dpg.set_axis_limits("cluster_temperature_x_axis", stock_voltage_datax[0], stock_voltage_datax[-1] + 1)
+    dpg.set_axis_limits("cluster_temperature_x_axis", stock_temperature[cluster_id].x[0],
+                        stock_temperature[cluster_id].x[-1] + 1)
 
 
 def set_cluster_combo_callback(sender):
@@ -128,34 +154,42 @@ def initBatteryClusterInfoView(red_by_theme, modbus_server):
                 dpg.add_spacer(height=10)
                 with dpg.group(horizontal=True):
                     dpg.add_text("簇总电压：", indent=text_indent1)
-                    dpg.add_input_text(default_value="0.0 V", indent=input_text_indent1, width=input_text_width,
+                    dpg.add_input_text(default_value="0.0 V", readonly=True, indent=input_text_indent1,
+                                       width=input_text_width,
                                        tag="clusterVoltage")
                     dpg.add_text("最大可充电流：", indent=text_indent2)
-                    dpg.add_input_text(default_value="0.0 A", indent=input_text_indent2, width=input_text_width,
+                    dpg.add_input_text(default_value="0.0 A", readonly=True, indent=input_text_indent2,
+                                       width=input_text_width,
                                        tag="maxChargeCurrent")
                 dpg.add_spacer(height=10)
                 with dpg.group(horizontal=True):
                     dpg.add_text("簇总电流：", indent=text_indent1)
-                    dpg.add_input_text(default_value="0.0 A", indent=input_text_indent1, width=input_text_width,
+                    dpg.add_input_text(default_value="0.0 A", readonly=True, indent=input_text_indent1,
+                                       width=input_text_width,
                                        tag="clusterCurrent")
                     dpg.add_text("最大可放电流：", indent=text_indent2)
-                    dpg.add_input_text(default_value="0.0 A", indent=input_text_indent2, width=input_text_width,
+                    dpg.add_input_text(default_value="0.0 A", readonly=True, indent=input_text_indent2,
+                                       width=input_text_width,
                                        tag="maxDischargeCurrent")
                 dpg.add_spacer(height=10)
                 with dpg.group(horizontal=True):
                     dpg.add_text("簇总SOC：", indent=text_indent1)
-                    dpg.add_input_text(default_value="0.00 %", indent=input_text_indent1, width=input_text_width,
+                    dpg.add_input_text(default_value="0.00 %", readonly=True, indent=input_text_indent1,
+                                       width=input_text_width,
                                        tag="clusterSOC")
                     dpg.add_text("单体平均电压：", indent=text_indent2)
-                    dpg.add_input_text(default_value="0.0 V", indent=input_text_indent2, width=input_text_width,
+                    dpg.add_input_text(default_value="0.0 V", readonly=True, indent=input_text_indent2,
+                                       width=input_text_width,
                                        tag="averageVoltage")
                 dpg.add_spacer(height=10)
                 with dpg.group(horizontal=True):
                     dpg.add_text("簇总SOH：", indent=text_indent1)
-                    dpg.add_input_text(default_value="0.00 %", indent=input_text_indent1, width=input_text_width,
+                    dpg.add_input_text(default_value="0.00 %", readonly=True, indent=input_text_indent1,
+                                       width=input_text_width,
                                        tag="clusterSOH")
                     dpg.add_text("单体平均温度：", indent=text_indent2)
-                    dpg.add_input_text(default_value="0 摄氏度", indent=input_text_indent2, width=input_text_width,
+                    dpg.add_input_text(default_value="0 摄氏度", readonly=True, indent=input_text_indent2,
+                                       width=input_text_width,
                                        tag="averageTemperature")
             with dpg.child_window(width=880, height=220):
                 text_indent1 = 10
@@ -198,43 +232,43 @@ def initBatteryClusterInfoView(red_by_theme, modbus_server):
                                        tag="singleClusterMinTemperatureModule")
                     dpg.add_input_text(default_value="0", indent=input_text_indent2, width=80, readonly=True,
                                        tag="singleClusterMinTemperatureCell")
+        cluster_str = dpg.get_value("cluster_combo")
+        cluster_id = modbus_server.cluster_atoi_map[cluster_str]
         with dpg.child_window(autosize_x=True, height=300):
-            stock_voltage_datax.append(0)
-            stock_data1.append(0)
-            stock_data2.append(0)
-            stock_data3.append(0)
             # 簇内单体电压对比实时曲线
             with dpg.plot(label="簇内单体电压对比曲线", width=-1, height=-1, crosshairs=True,
                           tag="cluster_voltage_plot"):
                 dpg.add_plot_legend()
                 dpg.add_plot_axis(dpg.mvXAxis, tag="cluster_voltage_x_axis")
                 with dpg.plot_axis(dpg.mvYAxis):
-                    dpg.add_line_series(x=stock_voltage_datax, y=stock_data1, label="单体最高电压",
+                    dpg.add_line_series(x=stock_voltage[cluster_id].x, y=stock_voltage[cluster_id].max_value,
+                                        label="单体最高电压",
                                         tag="cluster_max_voltage_series")
                     dpg.bind_item_theme(dpg.last_item(), "series_theme1")
-                    dpg.add_line_series(x=stock_voltage_datax, y=stock_data2, label="单体最低电压",
+                    dpg.add_line_series(x=stock_voltage[cluster_id].x, y=stock_voltage[cluster_id].min_value,
+                                        label="单体最低电压",
                                         tag="cluster_min_voltage_series")
                     dpg.bind_item_theme(dpg.last_item(), "series_theme2")
-                    dpg.add_line_series(x=stock_voltage_datax, y=stock_data3, label="单体平均电压",
+                    dpg.add_line_series(x=stock_voltage[cluster_id].x, y=stock_voltage[cluster_id].average_value,
+                                        label="单体平均电压",
                                         tag="cluster_average_voltage_series")
                     dpg.bind_item_theme(dpg.last_item(), "series_theme3")
         with dpg.child_window(autosize_x=True, autosize_y=True):
-            stock_temperature_datax.append(0)
-            stock_data4.append(0)
-            stock_data5.append(0)
-            stock_data6.append(0)
             # 簇内单体温度对比
             with dpg.plot(label="簇内单体温度对比曲线", width=-1, height=-1, crosshairs=True,
                           tag="cluster_temperature_plot"):
                 dpg.add_plot_legend()
                 dpg.add_plot_axis(dpg.mvXAxis, tag="cluster_temperature_x_axis")
                 with dpg.plot_axis(dpg.mvYAxis):
-                    dpg.add_line_series(x=stock_temperature_datax, y=stock_data4, label="单体最高温度",
+                    dpg.add_line_series(x=stock_temperature[cluster_id].x, y=stock_temperature[cluster_id].max_value,
+                                        label="单体最高温度",
                                         tag="cluster_max_temperature_series")
                     dpg.bind_item_theme(dpg.last_item(), "series_theme1")
-                    dpg.add_line_series(x=stock_temperature_datax, y=stock_data5, label="单体最低温度",
+                    dpg.add_line_series(x=stock_temperature[cluster_id].x, y=stock_temperature[cluster_id].min_value,
+                                        label="单体最低温度",
                                         tag="cluster_min_temperature_series")
                     dpg.bind_item_theme(dpg.last_item(), "series_theme2")
-                    dpg.add_line_series(x=stock_temperature_datax, y=stock_data6, label="单体平均温度",
+                    dpg.add_line_series(x=stock_temperature[cluster_id].x,
+                                        y=stock_temperature[cluster_id].average_value, label="单体平均温度",
                                         tag="cluster_average_temperature_series")
                     dpg.bind_item_theme(dpg.last_item(), "series_theme3")

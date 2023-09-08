@@ -74,11 +74,13 @@ def refresh_plot():
 
 def initBatteryStackInfoView(red_bg_theme):
     with dpg.tab(label="电池堆信息", tag="batteryStackInfo", parent="tabBar"):
+        dpg.add_spacer(height=3)
         with dpg.group(horizontal=True):
             dpg.add_text("状态标志：")
             dpg.add_input_text(default_value="运行", width=80, readonly=True, tag="batteryStatus")
             dpg.configure_item("batteryStatus", default_value="停止")
             dpg.bind_item_theme("batteryStatus", red_bg_theme)
+        dpg.add_spacer(height=3)
         dpg.add_separator()
         dpg.add_text("电池堆信息")
         input_text_indent = 180
@@ -174,24 +176,6 @@ def initBatteryStackInfoView(red_bg_theme):
                 dpg.add_input_text(default_value="0", indent=750, width=80, readonly=True,
                                    tag="singleMinTemperatureCell")
         with dpg.child_window(autosize_x=True, autosize_y=True):
-            with dpg.theme(tag="series_theme1"):
-                with dpg.theme_component(0):
-                    dpg.add_theme_color(dpg.mvPlotCol_Line, (0, 0, 255, 255), category=dpg.mvThemeCat_Plots)
-                    dpg.add_theme_color(dpg.mvPlotCol_Fill, (0, 0, 255, 255), category=dpg.mvThemeCat_Plots)
-                    dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerSize, 10, category=dpg.mvThemeCat_Plots)
-                with dpg.theme_component(dpg.mvLineSeries):
-                    dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerSize, 10, category=dpg.mvThemeCat_Plots)
-
-            with dpg.theme(tag="series_theme2"):
-                with dpg.theme_component(0):
-                    dpg.add_theme_color(dpg.mvPlotCol_Line, (255, 0, 0, 255), category=dpg.mvThemeCat_Plots)
-                    dpg.add_theme_color(dpg.mvPlotCol_Fill, (255, 0, 0, 255), category=dpg.mvThemeCat_Plots)
-
-            with dpg.theme(tag="series_theme3"):
-                with dpg.theme_component(0):
-                    dpg.add_theme_color(dpg.mvPlotCol_Line, (0, 255, 0, 255), category=dpg.mvThemeCat_Plots)
-                    dpg.add_theme_color(dpg.mvPlotCol_Fill, (0, 255, 0, 255), category=dpg.mvThemeCat_Plots)
-
             stock_datax.append(0)
             stock_data1.append(0)
             stock_data2.append(0)

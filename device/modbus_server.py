@@ -1,6 +1,7 @@
 import random
 
 from pyModbusTCP.server import ModbusServer, ModbusServerDataBank, log
+from config.simulation_thread import SimulationThread
 from device.bms import Cluster, Pack, Cell
 from device.pcs import Pcs
 import time
@@ -17,6 +18,7 @@ class ModbusServerGUI:
     def __init__(self):
         # databank object is used by pyModbusTCP to store the response values
         self.dataBank = ModbusServerDataBank()
+        self.simulation_thread = SimulationThread()
 
     def startServer(self):
         if self.checkRunning():

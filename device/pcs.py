@@ -6,21 +6,21 @@ from config.pcs_config import PcsConfig
 class Pcs:
     def __init__(self):
         # 读数据
-        self.totalAcPower = 0  # 总交流有功功率
-        self.totalAcReactivePower = 0  # 总交流无功功率
-        self.totalApparentPower = 0  # 总交流视在功率
-        self.totalPowerFactor = 0  # 总交流功率因数
-        self.todayAcChargeEnergy = 0  # 当天交流充电量
-        self.todayAcDischargeEnergy = 0  # 当天交流放电量
-        self.pcsTemperature = 0  # pcs模块温度
-        self.environmentTemperature = 0  # pcs环境温度
-        self.phaseAVoltage = 0  # A相电压
-        self.phaseBVoltage = 0  # B相电压
-        self.phaseCVoltage = 0  # C相电压
-        self.phaseACurrent = 0  # A相电流
-        self.phaseBCurrent = 0  # B相电流
-        self.phaseCCurrent = 0  # C相电流
-        self.acFrequency = 0  # 交流频率
+        self.totalAcPower = 0.0  # 总交流有功功率
+        self.totalAcReactivePower = 0.0  # 总交流无功功率
+        self.totalApparentPower = 0.0 # 总交流视在功率
+        self.totalPowerFactor = 0.0  # 总交流功率因数
+        self.todayAcChargeEnergy = 0.0  # 当天交流充电量
+        self.todayAcDischargeEnergy = 0.0  # 当天交流放电量
+        self.pcsTemperature = 0.0  # pcs模块温度
+        self.environmentTemperature = 0.0  # pcs环境温度
+        self.phaseAVoltage = 0.0  # A相电压
+        self.phaseBVoltage = 0.0  # B相电压
+        self.phaseCVoltage = 0.0  # C相电压
+        self.phaseACurrent = 0.0  # A相电流
+        self.phaseBCurrent = 0.0  # B相电流
+        self.phaseCCurrent = 0.0  # C相电流
+        self.acFrequency = 0.0  # 交流频率
 
         # 写数据
         self.isStart = 0  # pcs开关机设置

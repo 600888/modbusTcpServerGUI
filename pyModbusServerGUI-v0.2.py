@@ -10,6 +10,7 @@ import random
 import csv
 from view.battery_stack_view import initBatteryStackInfoView, refresh_battery_text
 from view.battery_cluster_view import initBatteryClusterInfoView, refresh_battery_cluster_text
+from view.pcs_view import initPcsInfoView, refresh_pcs_text
 
 development = False
 if development:
@@ -17,7 +18,6 @@ if development:
 else:
     import my_log
 
-simulation_thread = None
 # 隐藏控制台
 # if sys.platform == "win32":
 #     import ctypes
@@ -281,7 +281,7 @@ def autoSimulation(sender, app_data, user_data):
     def bmsSimulationThread(sender, app_data, user_data):
         dpg.configure_item("batteryStatus", default_value="运行")
         dpg.bind_item_theme("batteryStatus", green_bg_theme)
-        while not simulation_thread.stop_event.is_set():
+        while not modbusServer.simulation_thread.stop_event.is_set():
             setRandomCellValues(sender, app_data, user_data)
             refreshRegisters(sender, app_data, user_data)
             refresh_battery_text(modbusServer)
@@ -291,29 +291,32 @@ def autoSimulation(sender, app_data, user_data):
 
     def pcsSimulationThread(sender, app_data, user_data):
         count = 0
-        while not simulation_thread.stop_event.is_set():
+        while not modbusServer.simulation_thread.stop_event.is_set():
             setRandomPcsValues(sender, app_data, user_data)
             refreshRegisters(sender, app_data, user_data)
+            refresh_pcs_text(modbusServer)
             time.sleep(0.1)
             count += 1
         print("pcs thread stopped")
 
     # 开启一个python线程每秒刷新一次
-    global simulation_thread
-    simulation_thread.stop_event.clear()
-    simulation_thread.thread = None
+    global modbusServer
+    modbusServer.simulation_thread.stop_event.clear()
+    modbusServer.simulation_thread.thread = None
     if modbusServer.getType() == "Modbus PCS":
-        simulation_thread.set_thread(threading.Thread(target=pcsSimulationThread, args=(sender, app_data, user_data)))
+        modbusServer.simulation_thread.set_thread(
+            threading.Thread(target=pcsSimulationThread, args=(sender, app_data, user_data)))
     else:
-        simulation_thread.set_thread(threading.Thread(target=bmsSimulationThread, args=(sender, app_data, user_data)))
-    simulation_thread.start()
+        modbusServer.simulation_thread.set_thread(
+            threading.Thread(target=bmsSimulationThread, args=(sender, app_data, user_data)))
+    modbusServer.simulation_thread.start()
 
 
 # 停止自动刷新输入寄存器
 def stopAutoSimulation(sender, app_data, user_data):
     log.debug("stopRefreshRegisters")
     global simulation_thread
-    simulation_thread.stopAutoSimulation(sender, app_data, user_data, dpg, red_bg_theme)
+    modbusServer.simulation_thread.stopAutoSimulation(sender, app_data, user_data, dpg, red_bg_theme)
 
 
 def randomiseOutputRegisters(sender, app_data, user_data):
@@ -452,7 +455,6 @@ def on_modbus_type_selected(sender, data):
     if modbus_type == "Modbus PCS":
         modbusServer = ModbusPcsServerGUI()
         modbusServer.setType("Modbus PCS")
-        simulation_thread = SimulationThread()
         log.info("Modbus PCS")
         # 执行 Modbus PCS 相关逻辑
         pass
@@ -460,7 +462,6 @@ def on_modbus_type_selected(sender, data):
         modbusServer = ModbusBmsServerGUI()
         modbusServer.set_cluster_data()
         modbusServer.setType("Modbus BMS")
-        simulation_thread = SimulationThread()
         log.info("Modbus BMS")
         # 执行 Modbus BMS 相关逻辑
         pass
@@ -649,10 +650,11 @@ def applyConfig(sender, app_data, user_data):
         count = 0
         i = 0
         config_list = get_pcs_config_list(dpg.get_value("loopCount"))
-        while not simulation_thread.stop_event.is_set():
+        while not modbusServer.simulation_thread.stop_event.is_set():
             if i < len(config_list):
                 if int(config_list[i].time_offset) == count:
                     modbusServer.setPcsConfig(config_list[i])
+                    refresh_pcs_text(modbusServer)
                     log.info("设置第" + str(i + 1) + "个配置"
                              + " 偏移量：" + str(config_list[i].time_offset +
                                                 " pcs服务开启：" + str(config_list[i].server_status) +
@@ -668,11 +670,14 @@ def applyConfig(sender, app_data, user_data):
         log.warning("pcs thread stopped")
 
     # 开启一个python线程每秒刷新一次
+    modbusServer.simulation_thread.stop_event.clear()
+    modbusServer.simulation_thread.thread = None
     if modbusServer.getType() == "Modbus PCS":
-        simulation_thread.thread = threading.Thread(target=pcsApplyConfigThread, args=(sender, app_data, user_data))
-    simulation_thread.start()
+        modbusServer.simulation_thread.thread = threading.Thread(target=pcsApplyConfigThread,
+                                                                 args=(sender, app_data, user_data))
+    modbusServer.simulation_thread.start()
 
-    if simulation_thread.thread is not None and simulation_thread.thread.is_alive():
+    if modbusServer.simulation_thread.thread is not None and modbusServer.simulation_thread.thread.is_alive():
         dpg.configure_item("configStatus", default_value="应用中")
         dpg.bind_item_theme("configStatus", green_bg_theme)
     else:
@@ -771,7 +776,8 @@ def updateConfig(pcs_config_id, time_offset, server_status, run_mode, voltage, c
 
 
 def setPcsConfigWindow(pcs_label, window, method):
-    if simulation_thread is not None and simulation_thread.is_alive():
+    global modbusServer
+    if modbusServer.simulation_thread is not None and modbusServer.simulation_thread.is_alive():
         # 弹窗警告
         with dpg.window(label="警告", modal=True, show=False, no_close=True, tag="warningWindow", pos=[500, 300]):
             dpg.add_text("请先停止应用配置！")
@@ -858,7 +864,7 @@ def updateConfigWindow():
 
 
 def deleteConfig():
-    if simulation_thread is not None and simulation_thread.is_alive():
+    if modbusServer.simulation_thread is not None and modbusServer.simulation_thread.is_alive():
         # 弹窗警告
         with dpg.window(label="警告", modal=True, show=False, no_close=True, tag="warningWindow", pos=[500, 300]):
             dpg.add_text("请先停止应用配置！")
@@ -903,6 +909,22 @@ with dpg.theme() as green_bg_theme:
 with dpg.theme() as red_bg_theme:
     with dpg.theme_component(dpg.mvAll):
         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (230, 0, 0), category=dpg.mvThemeCat_Core)
+
+with dpg.theme(tag="series_theme1"):
+    with dpg.theme_component(0):
+        dpg.add_theme_color(dpg.mvPlotCol_Line, (0, 0, 255, 255), category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_color(dpg.mvPlotCol_Fill, (0, 0, 255, 255), category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerSize, 10, category=dpg.mvThemeCat_Plots)
+
+with dpg.theme(tag="series_theme2"):
+    with dpg.theme_component(0):
+        dpg.add_theme_color(dpg.mvPlotCol_Line, (255, 0, 0, 255), category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_color(dpg.mvPlotCol_Fill, (255, 0, 0, 255), category=dpg.mvThemeCat_Plots)
+
+with dpg.theme(tag="series_theme3"):
+    with dpg.theme_component(0):
+        dpg.add_theme_color(dpg.mvPlotCol_Line, (0, 255, 0, 255), category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_color(dpg.mvPlotCol_Fill, (0, 255, 0, 255), category=dpg.mvThemeCat_Plots)
 
 with dpg.window(tag="Primary Window", width=1500):
     with dpg.tab_bar(tag="tabBar"):
@@ -1078,6 +1100,7 @@ with dpg.window(tag="Primary Window", width=1500):
 
             with dpg.collapsing_header(label="PCS配置", tag="pcsConfig"):
                 initPcsConfig()
+        initPcsInfoView(red_bg_theme, green_bg_theme)
         initBatteryStackInfoView(red_bg_theme)
         initBatteryClusterInfoView(red_bg_theme, modbus_server=modbusServer)
 
