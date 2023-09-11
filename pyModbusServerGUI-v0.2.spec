@@ -9,7 +9,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[('./pyModbusTCP/*.py', './pyModbusTCP/'),('./device/*.py','./device/'),('./resources', './resources'),
-            ('./my_log.py','.'),('./config/*.py','.')],
+            ('./my_log.py','.'),('./config/*.py','.'),('./view/*.py','.')],
     hiddenimports=['tkinter'],
     hookspath=[],
     hooksconfig={},

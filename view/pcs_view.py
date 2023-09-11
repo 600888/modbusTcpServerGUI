@@ -130,13 +130,13 @@ def initPcsInfoView(red_bg_theme, green_bg_theme):
         dpg.add_spacer(height=10)
         with dpg.child_window(width=-1, height=235, no_scrollbar=True):
             text_indent1 = 40
-            input_text_indent1 = 240
-            text_indent2 = 440
-            input_text_indent2 = 640
-            text_indent3 = 840
-            input_text_indent3 = 960
-            text_indent4 = 1160
-            input_text_indent4 = 1280
+            input_text_indent1 = 300
+            text_indent2 = 480
+            input_text_indent2 = 680
+            text_indent3 = 900
+            input_text_indent3 = 1030
+            text_indent4 = 1230
+            input_text_indent4 = 1350
             input_text_width = 150
             dpg.add_spacer(height=10)
             with dpg.group(horizontal=True):

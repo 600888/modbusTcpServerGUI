@@ -349,8 +349,8 @@ def refreshOutputRegistersTable(sender, app_data, user_data):
 
 # 设置单个电芯值
 def setCellValues(sender, app_data, user_data):
-    startModbusServer("uNF", "uNF", "uNF")
-    with dpg.window(label="设置单个电芯值", modal=True, show=False, tag="cell", no_title_bar=True):
+    log.debug("setCellValues")
+    with dpg.window(label="设置单个电芯值", show=False, tag="setSingleCellWindow", no_title_bar=True, pos=[200, 200]):
         dpg.add_text("设置单个电芯值!")
         dpg.add_separator()
 
@@ -416,8 +416,8 @@ def setCellValues(sender, app_data, user_data):
         with dpg.group(horizontal=True):
             dpg.add_button(label="确定", tag="ok", width=100, callback=setCellOK)
             dpg.add_button(label="取消", tag="cancel", width=100,
-                           callback=lambda: dpg.delete_item("cell"))
-    dpg.configure_item("cell", show=True)
+                           callback=lambda: dpg.delete_item("setSingleCellWindow"))
+    dpg.configure_item("setSingleCellWindow", show=True)
 
 
 def clearOutputRegisters(sender, app_data, user_data):
@@ -469,6 +469,15 @@ def on_modbus_type_selected(sender, data):
 
 def setRandomCellValues(sender, app_data, user_data):
     global modbusServer
+    if modbusServer is None or not modbusServer.checkRunning() or modbusServer.getType() != "Modbus BMS":
+        # 弹窗警告没有开启BMS服务
+        with dpg.window(label="警告", modal=True, show=False, no_close=True, tag="warningWindow", pos=[500, 300]):
+            dpg.add_text("Modbus BMS服务未开启")
+            log.warning("Modbus BMS服务未开启")
+            dpg.add_button(label="确定", width=100,
+                           callback=lambda: dpg.delete_item("warningWindow"))
+            dpg.configure_item("warningWindow", show=True)
+
     modbusServer.setRandomCellValues()
 
 
@@ -931,7 +940,6 @@ with dpg.window(tag="Primary Window", width=1500):
         with dpg.tab(label="主界面"):
             log = my_log.MyCustomLogger()
             dpg.bind_font(default_font)
-            dpg.add_text("Modbus/TCP 服务器地址:", tag="serverText")
 
             # get list of all available IPs and offer to user in a dropdown list
             from netifaces import interfaces, ifaddresses, AF_INET
@@ -940,28 +948,27 @@ with dpg.window(tag="Primary Window", width=1500):
             for interface in interfaces():
                 for link in ifaddresses(interface).get(AF_INET, ()):
                     ip_list.append(link['addr'])
+            dpg.add_spacer(height=3)
+            with dpg.group(horizontal=True):
+                dpg.add_text("Modbus/TCP 服务器地址:", tag="serverText")
+                dpg.add_combo(ip_list, default_value=ip_list[0], tag="serverAddress", width=250, indent=300)
 
-            dpg.add_combo(ip_list, default_value=ip_list[0], tag="serverAddress", width=250, indent=300)
-            serverAddressGroup = dpg.add_group(horizontal=True)
-            dpg.move_item("serverText", parent=serverAddressGroup)
-            dpg.move_item("serverAddress", parent=serverAddressGroup)
+            dpg.add_spacer(height=3)
+            with dpg.group(horizontal=True):
+                dpg.add_text("端口号:", tag="serverPortText")
+                dpg.add_input_text(default_value="10502", tag="serverPort", width=100, indent=300)
 
-            dpg.add_text("端口号:", tag="serverPortText")
-            dpg.add_input_text(default_value="10502", tag="serverPort", width=100, indent=300)
+            dpg.add_spacer(height=3)
+            with dpg.group(horizontal=True):
+                dpg.add_text("设备类型:", tag="deviceTypeText")
+                # 设置MODBUS的下拉框选项
+                modbus_combo = dpg.add_combo(("Modbus PCS", "Modbus BMS"), default_value="Modbus BMS", tag="modbusType",
+                                             width=250,
+                                             indent=300)
+                on_modbus_type_selected(modbus_combo, None)
+                dpg.set_item_callback(modbus_combo, on_modbus_type_selected)
 
-            deviceTypeGroup = dpg.add_group(horizontal=True)
-            dpg.add_text("设备类型:", tag="deviceTypeText", parent=deviceTypeGroup)
-            # 设置MODBUS的下拉框选项
-            modbus_combo = dpg.add_combo(("Modbus PCS", "Modbus BMS"), default_value="Modbus BMS", tag="modbusType",
-                                         width=250,
-                                         indent=300, parent=deviceTypeGroup)
-            on_modbus_type_selected(modbus_combo, None)
-            dpg.set_item_callback(modbus_combo, on_modbus_type_selected)
-
-            serverPortGroup = dpg.add_group(horizontal=True)
-            dpg.move_item("serverPortText", parent=serverPortGroup)
-            dpg.move_item("serverPort", parent=serverPortGroup)
-
+            dpg.add_spacer(height=3)
             dpg.add_button(label="开启服务", callback=startModbusServer, tag="startServerButton")
             dpg.add_button(label="停止服务", callback=stopModbusServer, tag="stopServerButton")
             dpg.add_button(label="确认服务", callback=checkModbusServer, tag="checkServerButton")
@@ -975,19 +982,22 @@ with dpg.window(tag="Primary Window", width=1500):
             dpg.move_item("checkServerButton", parent=serverStatusGroup)
 
             # 设置电芯数据
-            with dpg.group(horizontal=True):
-                dpg.add_button(label="设置单个电芯值", callback=setCellValues,
-                               tag="setCellValuesButton")
+            dpg.add_spacer(height=3)
+            with dpg.group(horizontal=True, tag="setDataGroup"):
+                # dpg.add_button(label="设置单个电芯值", callback=setCellValues,
+                #                tag="setCellValuesButton")
                 dpg.add_button(label="随机设置所有电芯值", callback=setRandomCellValues,
                                tag="randomiseAllCellButton")
                 dpg.add_button(label="随机设置所有PCS值", callback=setRandomPcsValues,
                                tag="randomiseAllPcsValuesButton")
+            dpg.add_spacer(height=3)
             with dpg.group(horizontal=True):
                 dpg.add_button(label="自动模拟", callback=autoSimulation, tag="autoSimulationButton")
                 dpg.add_button(label="停止模拟", callback=stopAutoSimulation, tag="stopRefreshRegistersButton")
 
                 # 导出CSV文件
                 dpg.add_button(label="导出CSV文件", callback=export_csv, tag="exportCSVButton")
+            dpg.add_spacer(height=3)
 
             # 1-9999 - discrete output coils R/W - binary
             # At the moment it is R/O, the backend server library may let clients write values but they won't be reflected in the GUI

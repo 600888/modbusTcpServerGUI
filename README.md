@@ -1,38 +1,56 @@
 # pyModbusServerGUI
-Basic GUI to run a Modbus Server for testing purposes where you tell it what data to present rather than connecting it to some OT kit for a data feed. It lets you set which coils respond as enabled and put values for input registers, also can set them to random values. 
-
-Makes use of pyModbusTCP for all the hard work: https://github.com/sourceperl/pyModbusTCP
-
-GUI components use the dearpygui framework: https://github.com/hoffstadt/DearPyGui
-
-Roadmap is to add in discrete inputs, support updating the values being updated by a remote client (you can update them now but it won't be reflected in the GUI), then maybe allow for changing values over time. May even evolve it to take a true data feed, almost like a proper Modbus server!
+运行Modbus服务器以进行测试的基本GUI，告诉它要显示什么数据，而不是将它连接到一些OT套件以进行数据馈送。它允许您设置哪些线圈响应为启用，并为输入寄存器设置值，也可以将其设置为随机值。
+利用pyModbusTCP进行所有艰苦的工作：https://github.com/sourceperl/pyModbusTCP
+GUI组件使用dearpygui框架：https://github.com/hoffstadt/DearPyGui
+Roadmap是添加离散输入，支持更新远程客户端正在更新的值（您现在可以更新它们，但它不会反映在GUI中），然后可能允许随着时间的推移更改值。甚至可以将其发展为真正的数据馈送，几乎就像一个合适的Modbus服务器！
 
 
-# Usage
-Needs Python 3.x for the GUI library, if you're having a problem running it then drop me a line and will see if I can work out what's up. Only tested on Mint 20 at this point. 
-
-Requires pyModbusTCP and dearpygui to be installed with: 
+# 用法
+要求pyModbusTCP和dearpygui安装有：
 `sudo pip install dearpygui pyModbusTCP`
+下载所有文件，然后运行：
+`python pyModbusServerGUI-v0.2.py`
+机器上应该有一个可用IP地址的下拉列表，以选择服务器将监听的地址。标准Modbus/TCP端口是502，但这需要使用root权限运行。
+要设置线圈，有两个选项：
+-使用线圈GUI点击将启用的线圈地址，或者只使用随机化按钮。通过将X和Y标题值加在一起，可以找到每个线圈的地址。
+-键入/粘贴要启用的线圈地址的值的逗号分隔列表。
+要设置输入或输出寄存器值，请将它们键入网格上的相关框中，目前我只启用了1000个值，否则表会变得巨大，您可以通过更改代码中为“NUMREGISTERS”设置的值来更改这一点。。如果需要，可以添加某种CSV导入。同样，寄存器的真实地址是通过添加X和Y标头值来找到的，例如，在屏幕截图上，值“435”将在地址30042处找到。
+调试信息会被转储到控制台中，所以如果出现错误，那么在您启动它的终端中可能会有一些提示。
 
-Download all files, then run with:
+1.在modbus服务器上我集成了业务类型，分别是PCS（储能变流器）、BMS（电池管理系统），点击自动模拟即可每秒随机生成模拟数据，并将数据写入到modbus服务器里面，可以通过客户端远程读取和修改服务器数据。
 
-`python pyModbusServerGUI-v0.1.py`
+2.在电池堆界面可以查看具体数据，和每秒数据变化曲线。
 
-There should be a drop-down list of the available IP addresses on the machine to pick which the server will listen on. Standard Modbus/TCP port is 502 but that'd require running with root privileges. 
+3.在PCS配置界面可根据时间顺序配置pcs事件，例如3秒时设备断开，5秒时设备重启，7秒时设置PCS电压、电流、功率数值等，设置循环执行次数，可以导入配置，导出配置。
 
-To set coils there are two options:
- - Use the Coils GUI to click on which coil addresses will be enabled or just use the randomise button. The address of each coil is found by adding the X & Y header values together.
- - Type/paste in a comma separated list of values for the addresses of coils to enable.
+4.操作信息可以点开右边的日志查看。
 
-To set input or output register values, type them into the relevant box on the grid, at the moment I've only enabled 1000 values otherwise the table gets enormous, you can change this by altering the value set for "NUMREGISTERS" in the code.. Might add some kind of CSV import if needed. Again the true address of the register is found by adding the X and Y header values, e.g. on the screenshot below the value "435" will be found at address 30042.
+# 图片
 
+1.主界面
 
-Debug info gets dumped into the console so if it goes wrong then there may be some hints in the terminal you launched it from. 
+![](E:\pyModbusServerGUI-main\resources\img\1.png)
 
-License is Beerware
+2.输出线圈值界面
 
-# Screenshots
+![](E:\pyModbusServerGUI-main\resources\img\2.png)
 
-![coil setting](https://github.com/unixhead/pyModbusServerGUI/blob/main/ss-coils-GUI.png?raw=true)
+3.模拟输入寄存器
 
-![register setting](https://github.com/unixhead/pyModbusServerGUI/blob/main/ss-input-registers.png?raw=true)
+![](E:\pyModbusServerGUI-main\resources\img\3.png)
+
+4.自定义PCS配置信息
+
+![](E:\pyModbusServerGUI-main\resources\img\4.png)
+
+5.PCS信息界面
+
+![](E:\pyModbusServerGUI-main\resources\img\5.png)
+
+6.电池堆信息界面
+
+![](E:\pyModbusServerGUI-main\resources\img\6.png)
+
+7.电池簇信息界面
+
+![](E:\pyModbusServerGUI-main\resources\img\7.png)
