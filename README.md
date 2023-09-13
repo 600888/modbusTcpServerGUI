@@ -29,28 +29,28 @@ Roadmap是添加离散输入，支持更新远程客户端正在更新的值（�
 
 1.主界面
 
-![](E:\pyModbusServerGUI-main\resources\img\1.png)
+![](https://github.com/600888/pyModbusServerGUI-test/blob/linux/resources/img/1.png)
 
 2.输出线圈值界面
 
-![](E:\pyModbusServerGUI-main\resources\img\2.png)
+![](https://github.com/600888/pyModbusServerGUI-test/blob/linux/resources/img/2.png)
 
 3.模拟输入寄存器
 
-![](E:\pyModbusServerGUI-main\resources\img\3.png)
+![](https://github.com/600888/pyModbusServerGUI-test/blob/linux/resources/img/3.png)
 
 4.自定义PCS配置信息
 
-![](E:\pyModbusServerGUI-main\resources\img\4.png)
+![](https://github.com/600888/pyModbusServerGUI-test/blob/linux/resources/img/4.png)
 
 5.PCS信息界面
 
-![](E:\pyModbusServerGUI-main\resources\img\5.png)
+![](https://github.com/600888/pyModbusServerGUI-test/blob/linux/resources/img/5.png)
 
 6.电池堆信息界面
 
-![](E:\pyModbusServerGUI-main\resources\img\6.png)
+![](https://github.com/600888/pyModbusServerGUI-test/blob/linux/resources/img/6.png)
 
 7.电池簇信息界面
 
-![](E:\pyModbusServerGUI-main\resources\img\7.png)
+![](https://github.com/600888/pyModbusServerGUI-test/blob/linux/resources/img/7.png)
