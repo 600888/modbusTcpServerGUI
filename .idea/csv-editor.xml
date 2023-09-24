@@ -10,6 +10,20 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\point_csv\modbusRTU配置.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\point_csv\modbusTCP配置.csv">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\point_csv\pcs.csv">
           <value>
             <Attribute>

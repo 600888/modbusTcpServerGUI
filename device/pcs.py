@@ -1,14 +1,25 @@
+import csv
 import logging
 import random
 from config.pcs_config import PcsConfig
+from device.point_data import Yc, Yx
 
 
 class Pcs:
+    codeToDataPointMap = {}
+    addressDict = {}
+
     def __init__(self):
+        self.yc_list = []
+        self.yx_list = []
+        for i in (30000, 30016):
+            self.addressDict[i] = True
+        for i in (40000, 40006):
+            self.addressDict[i] = True
         # 读数据
         self.totalAcPower = 0.0  # 总交流有功功率
         self.totalAcReactivePower = 0.0  # 总交流无功功率
-        self.totalApparentPower = 0.0 # 总交流视在功率
+        self.totalApparentPower = 0.0  # 总交流视在功率
         self.totalPowerFactor = 0.0  # 总交流功率因数
         self.todayAcChargeEnergy = 0.0  # 当天交流充电量
         self.todayAcDischargeEnergy = 0.0  # 当天交流放电量
@@ -28,6 +39,53 @@ class Pcs:
         self.isManual = 0  # 手动并离网模式 0:离网 1:并网
         self.isPlan = 0  # 是否启用计划曲线运行
         self.runMode = 0  # 运行模式，恒定功率模式，恒定电流模式
+
+    def importDataPointCsv(self, file_name):
+        # 读取 modbus_point.csv 数据表
+        with open(file_name, 'r', encoding='utf-8', newline='') as f:
+            reader = csv.reader(f, skipinitialspace=True)
+            rows = [row for row in reader if any(field.strip() for field in row)]  # 去除没有数据的空行
+            count = 0  # 记录读取到第几行
+            group_code = ""  # 记录当前组号
+            for row in rows:
+                count += 1
+                if str(row[0]).find("grp_type") != -1:
+                    continue
+                elif str(row[0]).find("yc") != -1:
+                    break
+
+                group_code = str(row[1])
+
+            # 读取modbus_point数据,分别导入yc和yx
+            is_yx = False
+            modbus_rows = rows[count:]
+            for row in modbus_rows:
+                count += 1
+                # 跳过yc开始标志
+                if str(row[0]).find("yc") != -1:
+                    continue
+                elif str(row[0]).find("rtu_addr") != -1:
+                    continue
+                elif str(row[0]).find("yx") != -1:
+                    is_yx = True
+                    continue
+
+            if not is_yx:
+                yc_data = Yc(str(row[1]), str(row[2]), str(row[6]), str(row[5]), 0, float(row[8]), float(row[9]),
+                             int(row[4]))
+                self.yc_list.append(yc_data)
+            else:
+                yx_data = Yx(str(row[1]), str(row[2]), str(row[6]), str(row[5]), 0, int(row[4]))
+                self.yx_list.append(yx_data)
+
+        for yc in self.yc_list:
+            self.codeToDataPointMap[yc.code] = yc
+
+        for yx in self.yx_list:
+            self.codeToDataPointMap[yx.code] = yx
+
+    def checkImportCsv(self, pcs_point, data_list):
+        pass
 
     # 获取总交流有功功率
     def getTotalAcPower(self):
@@ -116,6 +174,14 @@ class Pcs:
         self.isManual = random.randint(0, 1)
         self.isPlan = random.randint(0, 1)
         self.runMode = random.randint(0, 1)
+
+        for yc in self.yc_list:
+            if yc.address not in self.addressDict:
+                yc.val = random.randint(1000, 2000)
+
+        for yx in self.yx_list:
+            if yx.address not in self.addressDict:
+                yx.val = random.randint(0, 1)
 
     def setPcsConfig(self, pcs_config):
         self.isStart = 1 if pcs_config.server_status else 0

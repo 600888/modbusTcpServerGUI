@@ -1,3 +1,4 @@
+import os
 import threading
 import time
 from typing import List
@@ -284,6 +285,7 @@ def autoSimulation(sender, app_data, user_data):
         while not modbusServer.simulation_thread.stop_event.is_set():
             setRandomCellValues(sender, app_data, user_data)
             refreshRegisters(sender, app_data, user_data)
+            refreshOutputRegistersTable(sender, app_data, user_data)
             refresh_battery_text(modbusServer)
             refresh_battery_cluster_text(modbusServer)
             time.sleep(0.1)
@@ -294,7 +296,7 @@ def autoSimulation(sender, app_data, user_data):
         while not modbusServer.simulation_thread.stop_event.is_set():
             setRandomPcsValues(sender, app_data, user_data)
             refreshRegisters(sender, app_data, user_data)
-            refresh_pcs_text(modbusServer)
+            # refresh_pcs_text(modbusServer)
             time.sleep(0.1)
             count += 1
         print("pcs thread stopped")
@@ -483,6 +485,38 @@ def setRandomCellValues(sender, app_data, user_data):
 
 import tkinter as tk
 from tkinter import filedialog
+
+
+# 导入CSV文件
+def import_csv(sender, app_data, user_data):
+    dataList = []
+    global modbusServer
+
+    log.debug("import_csv")
+    fTyp = [("", "*")]
+    iDir = os.path.abspath(os.path.dirname(__file__))
+    file_name = tk.filedialog.askopenfilename(filetypes=fTyp, initialdir=iDir)
+    log.debug("file_name: " + file_name)
+
+    if modbusServer.getType() == "Modbus PCS":
+        modbusServer.pcs.importDataPointCsv(file_name)
+        # 弹窗提示导入成功
+        with dpg.window(label="提示", modal=True, show=False, no_close=True, tag="successWindow", pos=[500, 300]):
+            dpg.add_text("导入成功")
+            log.info("导入成功")
+            dpg.add_button(label="确定", width=100,
+                           callback=lambda: dpg.delete_item("successWindow"))
+            dpg.configure_item("successWindow", show=True)
+    else:
+        cellDataPointHeader = ["簇id", "模组id", "电芯id", "测点类型", "地址", "16进制地址", "测点值", "乘法系数"]
+        dataList.append(cellDataPointHeader)
+        # 导出电芯数据
+        # modbusServer.exportCellDataPointByCell(dataList)
+        modbusServer.exportCellDataPointByAddress(dataList)
+        systemDataPointHeader = ["地址", "16进制地址", "测点名", "测点值", "乘法系数"]
+        dataList.append(systemDataPointHeader)
+        # 导出系统数据
+        modbusServer.exportSystemDataPoint(dataList)
 
 
 # 导出CSV文件
@@ -995,6 +1029,9 @@ with dpg.window(tag="Primary Window", width=1500):
                 dpg.add_button(label="自动模拟", callback=autoSimulation, tag="autoSimulationButton")
                 dpg.add_button(label="停止模拟", callback=stopAutoSimulation, tag="stopRefreshRegistersButton")
 
+                # 导入CSV文件
+                dpg.add_button(label="导入CSV文件", callback=import_csv, tag="importCSVButton")
+
                 # 导出CSV文件
                 dpg.add_button(label="导出CSV文件", callback=export_csv, tag="exportCSVButton")
             dpg.add_spacer(height=3)
@@ -1110,7 +1147,7 @@ with dpg.window(tag="Primary Window", width=1500):
 
             with dpg.collapsing_header(label="PCS配置", tag="pcsConfig"):
                 initPcsConfig()
-        initPcsInfoView(red_bg_theme, green_bg_theme)
+        # initPcsInfoView(red_bg_theme, green_bg_theme)
         initBatteryStackInfoView(red_bg_theme)
         initBatteryClusterInfoView(red_bg_theme, modbus_server=modbusServer)
 

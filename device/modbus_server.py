@@ -1,3 +1,4 @@
+import csv
 import random
 
 from pyModbusTCP.server import ModbusServer, ModbusServerDataBank, log
@@ -136,8 +137,11 @@ class ModbusServerGUI:
 
 
 class ModbusPcsServerGUI(ModbusServerGUI):
-    config_list = []
-    pcs = Pcs()
+
+    def __init__(self):
+        super().__init__()
+        self.config_list = []
+        self.pcs = Pcs()
 
     # 设置PCS配置数据
     def setPcsConfig(self, pcs_config):
@@ -176,6 +180,23 @@ class ModbusPcsServerGUI(ModbusServerGUI):
         self.setValueByAddress(40003, self.pcs.isManual, "output")
         self.setValueByAddress(40004, self.pcs.isPlan, "output")
         self.setValueByAddress(40005, self.pcs.runMode, "output")
+
+        self.setExtraPcsDataByAddress()
+
+    def setExtraPcsDataByAddress(self):
+        for yc in self.pcs.yc_list:
+            if yc.address not in self.pcs.addressDict:
+                if int(yc.address, 16) >= 30000 and int(yc.address, 16) < 40000:
+                    self.setValueByAddress(yc.address, yc.value, "input")
+                else:
+                    self.setValueByAddress(yc.address, yc.value, "output")
+
+        for yx in self.pcs.yx_list:
+            if yx.address not in self.pcs.addressDict:
+                if int(yx.address, 16) >= 30000 and int(yx.address, 16) < 40000:
+                    self.setValueByAddress(yx.address, yx.value, "input")
+                else:
+                    self.setValueByAddress(yx.address, yx.value, "output")
 
     def getDataPoint(self, address, hex_address, name, value, unit):
         point = [address, hex_address, name, value, unit]
